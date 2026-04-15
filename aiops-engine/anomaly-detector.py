@@ -16,16 +16,13 @@ MIN_POINTS         = 10      # minimum data points before anomaly detection kick
 SLO_COOLDOWN_SEC   = 60      # only re-alert on SLO violation every 60 seconds
 ANOMALY_COOLDOWN_SEC = 30    # only re-alert on anomaly every 30 seconds
 
-#
-# headers = {
-#     "Authorization": "glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
-#     "Accept": "application/json"
-# }
 
+import os
+GRAFANA_TOKEN = os.getenv("GRAFANA_API_KEY")
 GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations" # Aapka Grafana port 3000 ya 8080 jo bhi hai
 # headers mein wahi Token use karein jo aapne pehle banaya tha
 headers = {
-    "Authorization":"glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
+    "Authorization":{"GRAFANA_API_KEY"},
     "Content-Type": "application/json"
 }
 
