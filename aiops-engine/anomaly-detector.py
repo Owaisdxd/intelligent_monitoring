@@ -12,15 +12,16 @@ SERVICE_NAME = os.getenv("MONITOR_SERVICE", "payment-api")
 PROM_URL     = "http://127.0.0.1:9090/api/v1/query"
 JAEGER_URL   = "http://127.0.0.1:16686"
 DATA_FILE          = "data_points.json"
-MIN_POINTS         = 10      # minimum data points before anomaly detection kicks in
-SLO_COOLDOWN_SEC   = 60      # only re-alert on SLO violation every 60 seconds
-ANOMALY_COOLDOWN_SEC = 30    # only re-alert on anomaly every 30 seconds
+MIN_POINTS         = 10      
+SLO_COOLDOWN_SEC   = 60
+ANOMALY_COOLDOWN_SEC = 30
 
 
-import os
+
 GRAFANA_TOKEN = os.getenv("GRAFANA_API_KEY")
-GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations" # Aapka Grafana port 3000 ya 8080 jo bhi hai
-# headers mein wahi Token use karein jo aapne pehle banaya tha
+
+GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations"
+
 headers = {
     "Authorization":{"GRAFANA_API_KEY"},
     "Content-Type": "application/json"
