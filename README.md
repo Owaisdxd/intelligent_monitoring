@@ -58,3 +58,4 @@ Jaeger UI: http://localhost:16686
 
 Shutdown
 To stop all services and background processes safely, simply press Ctrl+C in the terminal. The script will trigger a cleanup function to kill all background PIDs.
+# Intelligent-DevOps-Observability-Platform

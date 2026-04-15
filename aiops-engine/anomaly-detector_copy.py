@@ -16,17 +16,10 @@ MIN_POINTS         = 10      # minimum data points before anomaly detection kick
 SLO_COOLDOWN_SEC   = 60      # only re-alert on SLO violation every 60 seconds
 ANOMALY_COOLDOWN_SEC = 30    # only re-alert on anomaly every 30 seconds
 
-#
-# headers = {
-#     "Authorization": "glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
-#     "Accept": "application/json"
-# }
 
-GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations" # Aapka Grafana port 3000 ya 8080 jo bhi hai
-# headers mein wahi Token use karein jo aapne pehle banaya tha
 headers = {
-    "Authorization":"glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
-    "Content-Type": "application/json"
+    "Authorization": "glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
+    "Accept": "application/json"
 }
 
 # ─────────────────────────────────────────────
@@ -53,7 +46,7 @@ def get_request_rate():
     """Fetch HTTP request rate (requests/sec) from Prometheus."""
     query = "rate(http_requests_total[1m])"
     try:
-        response = requests.get(PROM_URL, params={'query': query}).json()
+        response = requests.get(PROM_URL, params={'query': query},headers=headers).json()
         results = response['data']['result']
         if results:
             return float(results[0]['value'][1])
@@ -148,19 +141,6 @@ def get_root_cause(trace_id, service=SERVICE_NAME):
     except Exception as e:
         return f"RCA Error: {str(e)}"
 
-def post_to_grafana(text, tags=["ai-anomaly"]):
-    """Grafana dashboard par vertical line (annotation) lagane ke liye."""
-    payload = {
-        "text": text,
-        "tags": tags,
-        "time": int(time.time() * 1000) # Grafana milliseconds mangta hai
-    }
-    try:
-        r = requests.post(GRAFANA_ANNOTATION_URL, headers=headers, json=payload, timeout=5)
-        if r.status_code == 200:
-            print("✅ Annotation added to Grafana Dashboard")
-    except Exception as e:
-        print(f"❌ Failed to post annotation: {e}")
 
 
 # ─────────────────────────────────────────────
@@ -207,7 +187,7 @@ while True:
         data_points.append([req_rate, err_rate, p99])
         save_data(data_points)
 
-        TRAIN_WINDOW = min(len(data_points), 500)
+        TRAIN_WINDOW = min(len(data_points), 100)
 
         if len(data_points) >= MIN_POINTS:
             X= np.array(data_points[-TRAIN_WINDOW:])
@@ -217,10 +197,11 @@ while True:
 
             if prediction[0] == -1:
                 if now - last_anomaly_alert_time >= ANOMALY_COOLDOWN_SEC:
-                    print(f"🚨 ANOMALY DETECTED! Rate={req_rate:.2f} | Errors={err_rate:.2f} | P99={p99:.3f}s")
+                    print(f"🚨   ANOMALY DETECTED! Rate={req_rate:.2f} | Errors={err_rate:.2f} | P99={p99:.3f}s")
 
                     # ── Step C: Automated RCA ────────────────
                     latest_id = get_latest_trace_id(SERVICE_NAME)
+
                     if latest_id:
                         cause = get_root_cause(latest_id, service=SERVICE_NAME)
                         print(f" Root Cause: {cause}")
@@ -228,10 +209,7 @@ while True:
                         print(" Root Cause: No recent traces found in Jaeger to analyze.")
 
                     # ── Step D: Deployment Risk ──────────────
-                    print("High Deployment Risk! Halt rollout immediately.")
-                    # ── Grafana par Alert bhejien ────────────
-                    alert_msg = f"<b>AI Alert:</b> Anomaly detected!<br><b>RCA:</b> {cause}"
-                    post_to_grafana(alert_msg, tags=["anomaly", SERVICE_NAME])
+                    print("  High Deployment Risk! Halt rollout immediately.")
                     last_anomaly_alert_time = now
                 else:
                     remaining = int(ANOMALY_COOLDOWN_SEC - (now - last_anomaly_alert_time))
