@@ -1,0 +1,9 @@
+# audit-policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: RequestResponse
+  namespaces: ["monitoring"]
+  resources:
+  - group: ""
+    resources: ["pods", "services"]

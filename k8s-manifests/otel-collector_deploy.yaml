@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: monitoring
+spec:
+  replicas: 1 # Demo ke liye 1 kafi hai taake logs check karna asan ho
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector:0.87.0
+        args:
+          - "--config=/conf/relay.yaml"
+        ports:
+          - containerPort: 4317 # gRPC
+          - containerPort: 4318 # HTTP
+          - containerPort: 8889 # Prometheus Metrics
+        volumeMounts:
+          - name: otel-collector-config-vol
+            mountPath: /conf
+      volumes:
+        - name: otel-collector-config-vol
+          configMap:
+            name: otel-collector-config

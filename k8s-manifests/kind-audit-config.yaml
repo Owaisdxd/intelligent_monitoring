@@ -1,0 +1,19 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraMounts:
+    # Local file ko Kind node ke andar map karna
+    - hostPath: ./audit-policy.yaml
+      containerPath: /etc/kubernetes/policies/audit-policy.yaml
+      readOnly: true
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        audit-policy-file: /etc/kubernetes/policies/audit-policy.yaml
+        audit-log-path: /var/log/kubernetes/audit.log
+        audit-log-maxage: "7"
+        audit-log-maxbackup: "1"
+        audit-log-maxsize: "10"

@@ -1,0 +1,27 @@
+# 1. Pehle Physical Disk (PV) define karein
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-pv-manual
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data/grafana" # Ye folder aapke laptop mein auto-ban jayega
+---
+# 2. Phir us Disk par claim (PVC) karein
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: "" # Khali chorne se ye manual PV ko dhoondega

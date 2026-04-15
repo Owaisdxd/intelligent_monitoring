@@ -1,0 +1,54 @@
+# k8s-manifests/grafana-dashboards.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-dashboard-config
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  intelligent-observability.json: |-
+    {
+      "title": "Intelligent DevOps Observability Platform",
+      "panels": [
+        {
+          "title": "Full-Stack Infrastructure: CPU Utilization",
+          "type": "graph",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            { "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)" }
+          ]
+        },
+        {
+          "title": "AIOps Status: Anomaly Detection Logs",
+          "type": "stat",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            { "expr": "count(ai_anomaly_detected_total > 0)" }
+          ],
+          "colors": ["green", "orange", "red"],
+          "thresholds": "0,1,5"
+        },
+        {
+          "title": "SRE Governance: Error Budget Remaining",
+          "type": "gauge",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            { "expr": "slo_error_budget_remaining{service='payment-api'}" }
+          ],
+          "fieldConfig": {
+            "values": true,
+            "thresholds": { "steps": [{ "value": 0, "color": "red" }, { "value": 20, "color": "green" }] }
+          }
+        },
+        {
+          "title": "Distributed Tracing: Request Latency (P99)",
+          "type": "timeseries",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))" }
+          ]
+        }
+      ]
+    }

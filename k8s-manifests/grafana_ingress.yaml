@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress-secure
+  namespace: monitoring
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP" # Ingress ko batayein ke Grafana khud HTTP hai
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - monitoring.local
+    secretName: monitoring-tls
+  rules:
+  - host: monitoring.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana-service # Ensure name is correct
+            port:
+              number: 3000

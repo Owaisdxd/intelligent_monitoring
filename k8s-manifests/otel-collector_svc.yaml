@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: monitoring
+  labels:
+    app: otel-collector
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc # Traces/Metrics via gRPC
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http # Traces/Metrics via HTTP (Aapki app isi par bhej rahi hai)
+      port: 4318
+      targetPort: 4318
+    - name: metrics # Prometheus metrics scrape karne ke liye
+      port: 8889
+      targetPort: 8889
+  type: ClusterIP
