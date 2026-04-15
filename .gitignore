@@ -1,0 +1,4 @@
+venv/
+/home/os/PycharmProjects/project/intelligent-observability-platform/aiops-engine/github_oauth
+__pycache__/
+*.pyc
