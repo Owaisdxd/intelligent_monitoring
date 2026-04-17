@@ -3,7 +3,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
   extraMounts:
-    # Local file ko Kind node ke andar map karna
+
     - hostPath: ./audit-policy.yaml
       containerPath: /etc/kubernetes/policies/audit-policy.yaml
       readOnly: true

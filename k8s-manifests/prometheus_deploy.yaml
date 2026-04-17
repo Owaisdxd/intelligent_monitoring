@@ -15,7 +15,7 @@ spec:
       containers:
       - name: prometheus
         image: prom/prometheus
-        args: # <--- Retention Policy yahan add hogi
+        args: # <--- Retention Policy
           - "--config.file=/etc/prometheus/prometheus.yml"
           - "--storage.tsdb.retention.time=30d"
           - "--storage.tsdb.path=/prometheus"
@@ -24,7 +24,7 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/prometheus/
-        - name: prometheus-storage # <--- Data folder mount karein
+        - name: prometheus-storage # <--- Data folder mount
           mountPath: /prometheus
       volumes:
       - name: config-volume

@@ -7,9 +7,9 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain # Data delete nahi hoga
+  persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: "/mnt/data/jaeger" # Yeh folder aapki Ubuntu machine par khud ban jayega
+    path: "/mnt/data/jaeger"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -17,8 +17,8 @@ metadata:
   name: jaeger-pvc
   namespace: monitoring
 spec:
-  volumeName: jaeger-pv # Yeh aapke PV ka metadata.name hona chahiye
-  storageClassName: "" # Manual PV ke liye isay empty string rakhein
+  volumeName: jaeger-pv
+  storageClassName: ""
   accessModes:
     - ReadWriteOnce
   resources:

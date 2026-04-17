@@ -1,5 +1,3 @@
-# observability-configs/otel-collector.yaml
-
 apiVersion: v1
 kind: ConfigMap
 metadata:

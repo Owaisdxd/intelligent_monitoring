@@ -4,7 +4,7 @@ metadata:
   name: otel-collector
   namespace: monitoring
 spec:
-  replicas: 1 # Demo ke liye 1 kafi hai taake logs check karna asan ho
+  replicas: 1
   selector:
     matchLabels:
       app: otel-collector

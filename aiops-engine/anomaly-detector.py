@@ -9,12 +9,23 @@ import logging
 # ─────────────────────────────────────────────
 # STRUCTURED LOGGING SETUP
 # ─────────────────────────────────────────────
+<<<<<<< HEAD
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log = logging.getLogger(__name__)
+=======
+SERVICE_NAME = os.getenv("MONITOR_SERVICE", "payment-api")
+PROM_URL     = "http://127.0.0.1:9090/api/v1/query"
+JAEGER_URL   = "http://127.0.0.1:16686"
+DATA_FILE          = "data_points.json"
+MIN_POINTS         = 10      
+SLO_COOLDOWN_SEC   = 60
+ANOMALY_COOLDOWN_SEC = 30
+
+>>>>>>> 6aa57ba397aa0698ce7236b4cc67d0958f9e1f5e
 
 # ─────────────────────────────────────────────
 # CONFIGURATIONS  (all tuneable values in one place)
@@ -59,6 +70,17 @@ REQUEST_TIMEOUT      = 5        # seconds for all HTTP calls
 CONTAMINATION        = 0.1      # IsolationForest contamination parameter
 RANDOM_STATE         = 42
 
+<<<<<<< HEAD
+=======
+GRAFANA_TOKEN = os.getenv("GRAFANA_API_KEY")
+
+GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations"
+
+headers = {
+    "Authorization":{"GRAFANA_API_KEY"},
+    "Content-Type": "application/json"
+}
+>>>>>>> 6aa57ba397aa0698ce7236b4cc67d0958f9e1f5e
 
 # ─────────────────────────────────────────────
 # PERSISTENCE: Load / Save

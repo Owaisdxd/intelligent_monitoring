@@ -13,7 +13,7 @@ spec:
         app: jaeger
     spec:
       securityContext:
-        fsGroup: 1000 # Yeh storage volume ki ownership set karta hai
+        fsGroup: 1000
       initContainers:
         - name: fix-permissions
           image: busybox
@@ -32,11 +32,11 @@ spec:
           - name: SPAN_STORAGE_TYPE
             value: "badger" # Local storage engine
           - name: BADGER_DIRECTORY_VALUE
-            value: "/data/spans" # Data yahan save hoga
+            value: "/data/spans"
           - name: BADGER_DIRECTORY_KEY
             value: "/data/keys"
           - name: BADGER_EPHEMERAL
-            value: "false" # Restart par data nahi uray ga
+            value: "false"
         securityContext:
           runAsUser: 1000
           allowPrivilegeEscalation: false
@@ -46,7 +46,7 @@ spec:
           - containerPort: 4318  # OTLP HTTP
         volumeMounts:
         - name: jaeger-storage
-          mountPath: /data # PVC ko yahan mount kiya
+          mountPath: /data
       volumes:
       - name: jaeger-storage
         persistentVolumeClaim:

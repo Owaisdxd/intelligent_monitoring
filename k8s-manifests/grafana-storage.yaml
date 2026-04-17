@@ -10,9 +10,9 @@ spec:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
   hostPath:
-    path: "/mnt/data/grafana" # Ye folder aapke laptop mein auto-ban jayega
+    path: "/mnt/data/grafana"
 ---
-# 2. Phir us Disk par claim (PVC) karein
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -24,4 +24,4 @@ spec:
   resources:
     requests:
       storage: 5Gi
-  storageClassName: "" # Khali chorne se ye manual PV ko dhoondega
+  storageClassName:
