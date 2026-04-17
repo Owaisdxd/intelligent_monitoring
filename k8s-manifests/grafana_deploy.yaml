@@ -23,29 +23,41 @@ spec:
             - name: grafana-db-storage
               mountPath: /var/lib/grafana
       containers:
+        # 1. Sidecar Container (This scans grafana configmap file )
+        - name: grafana-sc-dashboard
+          image: kiwigrid/k8s-sidecar:1.28.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: METHOD
+              value: WATCH
+            - name: LABEL
+              value: "grafana_dashboard"
+            - name: FOLDER
+              value: /tmp/dashboards
+            - name: RESOURCE
+              value: configmap
+          volumeMounts:
+            - name: sc-dashboard-volume # Shared volume
+              mountPath: /tmp/dashboards
+
+        # 2. Main Grafana Container
         - name: grafana
           image: grafana/grafana:latest
           ports:
             - containerPort: 3000
           env:
             - name: GF_SERVER_ROOT_URL
-              value: "http://monitoring.local:8443/"
-            - name: GF_SERVER_SERVE_FROM_SUB_PATH
-              value: "false"
-            - name: GF_SECURITY_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-creds
-                  key: admin-password # Yahan apna pasand ka password likhein
-            - name: GF_SECURITY_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: grafana-admin-creds
-                  key: admin-user
+              value: "https://monitoring.local:8443/"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH # (Optional) Thi is to set Home dashboard
+              value: "/tmp/dashboards/intelligent-observability.json"
           volumeMounts:
             - name: grafana-db-storage
               mountPath: /var/lib/grafana
+            - name: sc-dashboard-volume # Important : this is telling where grafan dashboard is
+              mountPath: /etc/grafana/provisioning/dashboards
       volumes:
         - name: grafana-db-storage
           persistentVolumeClaim:
             claimName: grafana-pvc
+        - name: sc-dashboard-volume # Shared emptyDir volume It is used by both the containers
+          emptyDir: {}

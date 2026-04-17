@@ -12,14 +12,17 @@ SERVICE_NAME = os.getenv("MONITOR_SERVICE", "payment-api")
 PROM_URL     = "http://127.0.0.1:9090/api/v1/query"
 JAEGER_URL   = "http://127.0.0.1:16686"
 DATA_FILE          = "data_points.json"
-MIN_POINTS         = 10      # minimum data points before anomaly detection kicks in
+MIN_POINTS         = 60     # minimum data points before anomaly detection kicks in
 SLO_COOLDOWN_SEC   = 60      # only re-alert on SLO violation every 60 seconds
 ANOMALY_COOLDOWN_SEC = 30    # only re-alert on anomaly every 30 seconds
+TOKEN=os.getenv("GRAFANA_TOKEN")
 
 
+GRAFANA_ANNOTATION_URL = "http://127.0.0.1:3000/api/annotations" # Aapka Grafana port 3000 ya 8080 jo bhi hai
+# headers mein wahi Token use karein jo aapne pehle banaya tha
 headers = {
-    "Authorization": "glsa_1Ck47Oy9riYxbk947RC51WzSKdxstrcA_4abbe9b6",
-    "Accept": "application/json"
+    "Authorization": TOKEN,
+    "Content-Type": "application/json"
 }
 
 # ─────────────────────────────────────────────
@@ -59,7 +62,7 @@ def fetch_slo_metric():
     """Fetch SLO availability % — ratio of 200 responses to total requests."""
     query = "(sum(rate(http_requests_total{http_status='200'}[5m])) / sum(rate(http_requests_total[5m]))) * 100"
     try:
-        response = requests.get(PROM_URL, params={'query': query}).json()
+        response = requests.get(PROM_URL, params={'query': query},headers=headers).json()
         result = response['data']['result']
         return float(result[0]['value'][1]) if result else 100.0
     except Exception:
@@ -70,7 +73,7 @@ def get_error_rate():
     """Fetch 5xx error rate from Prometheus."""
     query = "rate(http_requests_total{status=~'5..'}[1m])"
     try:
-        r = requests.get(PROM_URL, params={'query': query}).json()
+        r = requests.get(PROM_URL, params={'query': query},headers=headers).json()
         result = r['data']['result']
         return float(result[0]['value'][1]) if result else 0.0
     except Exception:
@@ -81,7 +84,7 @@ def get_p99_latency():
     """Fetch 99th percentile latency from Prometheus."""
     query = "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))"
     try:
-        r = requests.get(PROM_URL, params={'query': query}).json()
+        r = requests.get(PROM_URL, params={'query': query},headers=headers).json()
         result = r['data']['result']
         return float(result[0]['value'][1]) if result else 0.0
     except Exception:
@@ -97,7 +100,7 @@ def get_latest_trace_id(service=SERVICE_NAME):
     params = {
         'service': service,
         'limit': 1,
-        'lookback': '2m' # Pichle 2 minute ka data
+        'lookback': '2m'
     }
     try:
         r = requests.get(url, params=params, timeout=5)
@@ -138,10 +141,30 @@ def get_root_cause(trace_id, service=SERVICE_NAME):
 
         return f"Bottleneck in {actual_svc_name} → operation {op} took {dur_ms:.1f}ms"
 
-    except Exception as e:
-        return f"RCA Error: {str(e)}"
+    except requests.Timeout as e:
+        return f"Request is timed out: {str(e)}"
+    except requests.ConnectionError as a:
+        return f"Connection Error is Occured: {str(a)}"
+    except KeyError as b:
+        return f"Issue is with Key Error: {str(b)}"
+    except ValueError as c:
+        return f"Issue is with Value Error: {str(c)}"
 
 
+# def post_to_grafana(text, tags=["ai-anomaly"]):
+#     """Grafana dashboard par vertical line (annotation) lagane ke liye."""
+#     payload = {
+#         "text": text,
+#         "tags": tags,
+#         "time": int(time.time() * 1000) # Grafana milliseconds mangta hai
+#     }
+#     try:
+#         r = requests.post(GRAFANA_ANNOTATION_URL, headers=headers, json=payload, timeout=5)
+#         if r.status_code == 200:
+#             print("✅ Annotation added to Grafana Dashboard")
+#     except Exception as e:
+#         print(f"❌ Failed to post annotation: {e}")
+#
 
 # ─────────────────────────────────────────────
 # ML MODEL INITIALIZATION
@@ -187,7 +210,7 @@ while True:
         data_points.append([req_rate, err_rate, p99])
         save_data(data_points)
 
-        TRAIN_WINDOW = min(len(data_points), 100)
+        TRAIN_WINDOW = min(len(data_points), 500)
 
         if len(data_points) >= MIN_POINTS:
             X= np.array(data_points[-TRAIN_WINDOW:])
@@ -197,11 +220,10 @@ while True:
 
             if prediction[0] == -1:
                 if now - last_anomaly_alert_time >= ANOMALY_COOLDOWN_SEC:
-                    print(f"🚨   ANOMALY DETECTED! Rate={req_rate:.2f} | Errors={err_rate:.2f} | P99={p99:.3f}s")
+                    print(f"🚨 ANOMALY DETECTED! Rate={req_rate:.2f} | Errors={err_rate:.2f} | P99={p99:.3f}s")
 
                     # ── Step C: Automated RCA ────────────────
                     latest_id = get_latest_trace_id(SERVICE_NAME)
-
                     if latest_id:
                         cause = get_root_cause(latest_id, service=SERVICE_NAME)
                         print(f" Root Cause: {cause}")
@@ -209,7 +231,7 @@ while True:
                         print(" Root Cause: No recent traces found in Jaeger to analyze.")
 
                     # ── Step D: Deployment Risk ──────────────
-                    print("  High Deployment Risk! Halt rollout immediately.")
+                    print("High Deployment Risk! Halt rollout immediately.")
                     last_anomaly_alert_time = now
                 else:
                     remaining = int(ANOMALY_COOLDOWN_SEC - (now - last_anomaly_alert_time))
