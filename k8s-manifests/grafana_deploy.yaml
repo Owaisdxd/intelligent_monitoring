@@ -31,7 +31,7 @@ spec:
             - name: METHOD
               value: WATCH
             - name: LABEL
-              value: "grafana_dashboard"
+              value: grafana_dashboard
             - name: FOLDER
               value: /tmp/dashboards
             - name: RESOURCE
@@ -43,6 +43,7 @@ spec:
         # 2. Main Grafana Container
         - name: grafana
           image: grafana/grafana:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
           env:
