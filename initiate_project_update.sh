@@ -91,6 +91,11 @@ wait_for_port() {
   log_error "${name} on port ${port} is NOT reachable after ${retries} attempts."
   return 1   # caller must handle; do NOT exit here
 }
+port_forward_grafana_https() {
+  echo "Starting the port forwarding of grafana https !!!"
+  gnome-terminal -- bash -c "kubectl port-forward svc/ingress-nginx-controller 8443:443 -n ingress-nginx ; exec bash"
+  sleep 10
+}
 
 port_is_open() {
   nc -z 127.0.0.1 "$1" 2>/dev/null
@@ -577,6 +582,7 @@ main() {
 
   check_nodes
   check_pods
+  port_forward_grafana_https
   setup_port_forwards
   start_services
   start_traffic
