@@ -1,5 +1,4 @@
 # k8s-manifests/grafana-dashboards.yaml
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
