@@ -56,7 +56,8 @@ replicaset.apps/prometheus-5db5d7b68c   1         1         1       3d
 
 5. You do not need to start port forwarding it will be done by initiate_project_update.sh
 
-cd .. && chmod +x initiate_project_update.sh && ./initiate_project_update.sh
+cd .. && chmod +x initiate_project_update.sh && ./initiate_project_update.sh!
+
 
 6. What Happens Next?
 The script will perform the following sequence:

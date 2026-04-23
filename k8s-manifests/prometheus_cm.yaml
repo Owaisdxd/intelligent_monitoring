@@ -7,7 +7,13 @@ data:
   prometheus.yml: |
     global:
       scrape_interval: 1s
+
+    rule_files:
+      - "/etc/prometheus/rules/slo-rules.yaml"
+
     scrape_configs:
       - job_name: 'python-app'
+        scrape_interval: 1s
+        scrape_timeout: 900ms
         static_configs:
-          - targets: ['172.17.0.1:8000'] # Ubuntu localhost metrics
+          - targets: ['172.17.0.1:8000']

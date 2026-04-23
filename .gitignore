@@ -1,7 +1,9 @@
 venv/
-/home/os/PycharmProjects/project/intelligent-observability-platform/aiops-engine/github_oauth
+project/intelligent-observability-platform/aiops-engine/github_oauth
 __pycache__/
 *.pyc
 project/intelligent-observability-platform/aiops-engine/data_points.json
 project/intelligent-observability-platform/k8s-manifests/tls.crt
 project/intelligent-observability-platform/k8s-manifests/tls.key
+project/intelligent-observability-platform/aiops-engine/data_points.json
+project/intelligent-observability-platform/k8s-manifests/data_points.json

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  slo-rules.yaml: |-
+    groups:
+      - name: payment-api-slos
+        rules:
+          - record: job:http_requests_availability:ratio
+            expr: |
+              sum(rate(http_requests_total{job="python-app", status!~"500"}[1m])) 
+              / 
+              sum(rate(http_requests_total{job="python-app"}[1m]))
+
+          - alert: PaymentApiLowAvailability
+            expr: job:http_requests_availability:ratio < 0.999
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Payment API availability is below 99.9%"

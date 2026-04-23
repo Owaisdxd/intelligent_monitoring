@@ -18,6 +18,7 @@ spec:
         image: prom/prometheus
         args: # <--- Retention Policy
           - "--config.file=/etc/prometheus/prometheus.yml"
+          - "--query.lookback-delta=5s"
           - "--storage.tsdb.retention.time=30d"
           - "--storage.tsdb.path=/prometheus"
         ports:
@@ -27,6 +28,8 @@ spec:
           mountPath: /etc/prometheus/
         - name: prometheus-storage # <--- Data folder mount
           mountPath: /prometheus
+        - name: rules-volume
+          mountPath: /etc/prometheus/rules # Jahan rules save honge
       volumes:
       - name: config-volume
         configMap:
@@ -34,3 +37,7 @@ spec:
       - name: prometheus-storage # <--- Local disk storage
         persistentVolumeClaim:
           claimName: prometheus-pvc
+      - name: rules-volume
+        configMap:
+          name: prometheus-rules
+

@@ -28,7 +28,7 @@ def checkout():
     # Context Manager use karein taake span auto-close ho
     with tracer.start_as_current_span("process_payment") as span:
         status = "200"
-        if random.random() < 0.01:
+        if random.random() < 0.02: #increasing the value to show obvious and evident failed requests
             status = "500"
             span.set_attribute("error", True) # Jaeger mein error highlight karne ke liye
 

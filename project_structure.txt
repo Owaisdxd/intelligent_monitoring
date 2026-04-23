@@ -17,4 +17,4 @@
 ├── /app-services (The Target)
 │   └── microservice-demo/app.py # App instrumented with OpenTelemetry
 │
-└── initiate_project.sh #initiate the whole project after checking the services , nodes, pods urls and model
+└── initiate_project_update.sh #initiate the whole project after checking the services , nodes, pods urls and model
