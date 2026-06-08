@@ -23,30 +23,38 @@ spec:
           image: busybox:latest
           command: ["sh", "-c", "chown -R 65534:65534 /prometheus"]
           securityContext:
-            runAsUser: 0 # Root permissions temporarily needed just to run chown
+            runAsUser: 0
           volumeMounts:
             - name: prometheus-storage
               mountPath: /prometheus
-      
+
       containers:
       - name: prometheus
-        image: prom/prometheus
-        args: # <--- Retention Policy
+        image: prom/prometheus:v2.45.0  # Safe LTS Version
+        args:
           - "--config.file=/etc/prometheus/prometheus.yml"
           - "--storage.tsdb.retention.time=30d"
           - "--storage.tsdb.path=/prometheus"
-          - "--storage.tsdb.no-lockfile"  
+          - "--storage.tsdb.no-lockfile"
         ports:
         - containerPort: 9090
         volumeMounts:
         - name: config-volume
-          mountPath: /etc/prometheus/
-        - name: prometheus-storage # <--- Data folder mount
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+        - name: rules-volume
+          mountPath: /etc/prometheus/alert.rules
+          subPath: alert.rules
+        - name: prometheus-storage
           mountPath: /prometheus
+
       volumes:
       - name: config-volume
         configMap:
           name: prometheus-config
-      - name: prometheus-storage # <--- Local disk storage
+      - name: rules-volume
+        configMap:
+          name: prometheus-rules
+      - name: prometheus-storage
         persistentVolumeClaim:
           claimName: prometheus-pvc

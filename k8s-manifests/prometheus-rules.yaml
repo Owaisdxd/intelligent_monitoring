@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  alert.rules: |
+    groups:
+      - name: python-app-alerts
+        rules:
+          - alert: PythonAppDown
+            expr: up{job="python-app"} == 0
+            for: 10s  # Agar 10 seconds tak app down rahi, to alert fire hoga
+            labels:
+              severity: critical
+            annotations:
+              summary: "Python Application is DOWN!"
+              description: "The python-app target on 172.17.0.1:8000 has been unreachable for more than 10 seconds."
