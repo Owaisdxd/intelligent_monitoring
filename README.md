@@ -46,11 +46,13 @@ pod/otel-collector-dc8b885d7-65thh   1/1     Running   1 (14h ago)   4d12h
 pod/otel-collector-dc8b885d7-x9jft   1/1     Running   1 (14h ago)   4d12h
 pod/prometheus-6d4b48bc89-t7zng      1/1     Running   1 (14h ago)   4d12h
 
+
 NAME                         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                       AGE
 service/grafana-service      ClusterIP   10.96.137.50    <none>        3000/TCP                      4d12h
 service/jaeger-service       ClusterIP   10.96.30.13     <none>        16686/TCP,4317/TCP,4318/TCP   4d12h
 service/otel-collector       ClusterIP   10.96.202.247   <none>        4317/TCP,4318/TCP,8889/TCP    4d12h
 service/prometheus-service   ClusterIP   10.96.103.202   <none>        9090/TCP                      4d12h
+
 
 NAME                              DATA   AGE
 configmap/grafana-dashboard       1      4d12h
@@ -58,10 +60,12 @@ configmap/kube-root-ca.crt        1      4d12h
 configmap/otel-collector-config   1      4d12h
 configmap/prometheus-config       1      4d12h
 
+
 NAME                                 CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS     VOLUMEATTRIBUTESCLASS   REASON   AGE
 persistentvolume/grafana-pv-manual   5Gi        RWO            Retain           Bound    monitoring/grafana-pvc      manual-storage   <unset>                          2d20h
 persistentvolume/jaeger-pv           10Gi       RWO            Retain           Bound    monitoring/jaeger-pvc       manual-storage   <unset>                          4d12h
 persistentvolume/prometheus-pv       10Gi       RWO            Retain           Bound    monitoring/prometheus-pvc   manual-storage   <unset>                          4d12h
+
 
 NAME                                   STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS     VOLUMEATTRIBUTESCLASS   AGE
 persistentvolumeclaim/grafana-pvc      Bound    grafana-pv-manual   5Gi        RWO            manual-storage   <unset>                 2d20h
