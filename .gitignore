@@ -1,0 +1,20 @@
+# Sensitive
+InelObservPlatform/k8s-manifests/tls.crt
+InelObservPlatform/k8s-manifests/tls.key
+
+# Generated data
+data_points.json
+aiops-engine/data_points.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Kind only
+k8s-manifests/kind-only/
+
+# Logs
+logs/
+*.log

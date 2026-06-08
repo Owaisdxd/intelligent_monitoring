@@ -1,0 +1,32 @@
+# observability-configs/slo-rules.yaml
+
+apiVersion: sloth.slok.dev/v1
+kind: PrometheusServiceLevel
+metadata:
+  name: payment-service-slo
+  namespace: monitoring
+spec:
+  service: "payment-api"
+  labels:
+    team: "backend-sre"
+  slos:
+    - name: "requests-availability"
+      # Goal: 99.9% of all requests must be successful
+      objective: 99.9
+      description: "Payment API should rarely fail."
+      sli:
+        events:
+          # Total successful requests (HTTP 2xx or 3xx)
+          errorQuery: |
+            sum(rate(http_requests_total{service="payment-api", status=~"5.."}[{{.window}}]))
+          # Total requests
+          totalQuery: |
+            sum(rate(http_requests_total{service="payment-api"}[{{.window}}]))
+      alerting:
+        # Alert if we are burning the error budget too fast
+        pageAlert:
+          labels:
+            severity: critical
+            routing_key: sre-oncall
+          annotations:
+            summary: "High error budget burn rate on Payment API"

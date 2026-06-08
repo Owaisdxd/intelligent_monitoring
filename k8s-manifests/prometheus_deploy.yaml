@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      securityContext:
+        fsGroup: 65534
+        runAsUser: 65534
+        runAsGroup: 65534
+
+      initContainers:
+        - name: fix-permissions
+          image: busybox:latest
+          command: ["sh", "-c", "chown -R 65534:65534 /prometheus"]
+          securityContext:
+            runAsUser: 0 # Root permissions temporarily needed just to run chown
+          volumeMounts:
+            - name: prometheus-storage
+              mountPath: /prometheus
+      
+      containers:
+      - name: prometheus
+        image: prom/prometheus
+        args: # <--- Retention Policy
+          - "--config.file=/etc/prometheus/prometheus.yml"
+          - "--storage.tsdb.retention.time=30d"
+          - "--storage.tsdb.path=/prometheus"
+          - "--storage.tsdb.no-lockfile"  
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/prometheus/
+        - name: prometheus-storage # <--- Data folder mount
+          mountPath: /prometheus
+      volumes:
+      - name: config-volume
+        configMap:
+          name: prometheus-config
+      - name: prometheus-storage # <--- Local disk storage
+        persistentVolumeClaim:
+          claimName: prometheus-pvc

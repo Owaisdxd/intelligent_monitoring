@@ -1,0 +1,20 @@
+/intelligent-observability-platform
+│
+├── /infrastructure (Terraform or CloudFormation)
+│   └── aws-eks-cluster.tf      # AWS Managed Kubernetes setup 
+│
+├── /k8s-manifests (The Engine Room)
+│   ├── prometheus.yaml   # Infrastructure monitoring
+│   ├── jaeger.yaml     # Distributed tracing
+│   └── grafana-dashboards.yaml # Visual analytics
+|   └── grafana.yaml # running grafana pod
+│   ├── otel-collector.yaml     # Central data router
+|
+├── /aiops-engine (The Intelligence)
+│   ├── /models                 # Scikit-learn/Prophet models 
+│   └── anomaly-detector.py     # AI-based alerting script 
+│
+├── /app-services (The Target)
+│   └── microservice-demo/app.py # App instrumented with OpenTelemetry
+│
+└── initiate_project_update.sh #initiate the whole project after checking the services , nodes, pods urls and model

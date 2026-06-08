@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-service
+  namespace: monitoring
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: query
+      port: 16686
+      targetPort: 16686
+    - name: otlp-grpc      # gRPC ke liye 4317 -> 4317
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http      # HTTP ke liye 4318 -> 4318
+      port: 4318
+      targetPort: 4318
+  type: ClusterIP
