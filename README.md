@@ -32,6 +32,10 @@ This platform automates infrastructure health checks, monitors SLOs, and perform
     pip install -r requirements.txt
 
 3. Deploy the Monitoring Stack (K8s)
+    
+    kubectl apply -f k8s-manifests/grafana-storage.yaml 2>/dev/null
+    kubectl apply -f k8s-manifests/prometheus_storage.yaml 2>/dev/null
+    kubectl apply -f k8s-manifests/jaeger_storage.yaml 2>/dev/null
 
     ./start_building_env.sh
 
