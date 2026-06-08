@@ -25,9 +25,6 @@ echo "[INFO] Orchestrating Infrastructure Manifests Layer..."
 # Core Networking, Storage and Service Accounts First
 kubectl apply -f k8s-manifests/service_account.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/grafana_rbac.yaml
-kubectl apply -f k8s-manifests/grafana-storage.yaml 2>/dev/null
-kubectl apply -f k8s-manifests/prometheus_storage.yaml 2>/dev/null
-kubectl apply -f k8s-manifests/jaeger_storage.yaml 2>/dev/null
 
 # Configuration Engine Mounts
 kubectl apply -f k8s-manifests/prometheus_cm.yaml
