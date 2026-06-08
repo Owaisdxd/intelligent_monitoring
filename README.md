@@ -1,39 +1,43 @@
 An end-to-end cloud-native observability stack integrated with an AI-driven Anomaly Detection Engine. 
+
 This platform automates infrastructure health checks, monitors SLOs, and performs Automated Root Cause Analysis (RCA) using distributed tracing.
 
 **Key Features Automated Orchestration:**
 
-1_Single-script boot process for K8s nodes, pods, and port-forwarding.
-2_AIOps Brain: Real-time anomaly detection using the Isolation Forest algorithm.
-3_SRE Governance: Live Error Budget tracking and SLO violation alerts.
-4_Full-Stack Monitoring: Integrated Prometheus, Grafana, and Jaeger for P99 latency and trace analysis.
+    1_Single-script boot process for K8s nodes, pods, and port-forwarding.
+
+    2_AIOps Brain: Real-time anomaly detection using the Isolation Forest algorithm.
+
+    3_SRE Governance: Live Error Budget tracking and SLO violation alerts.
+
+    4_Full-Stack Monitoring: Integrated Prometheus, Grafana, and Jaeger for P99 latency and trace analysis.
 
 **Prerequisites**
  
-Before running the platform, ensure you have the following installed:
+    Before running the platform, ensure you have the following installed:
 
-Kubernetes Cluster (Minikube or Kind)
+    Kubernetes Cluster (Minikube or Kind)
 
-kubectl configured to your cluster
+    kubectl configured to your cluster
 
-Python 3.9+
+    Python 3.9+
 
 1. Clone the Repository
 
-git clone https://github.com/Owaisdxd/intelligent_monitoring
-cd intelligent_monitoring
+    git clone https://github.com/Owaisdxd/intelligent_monitoring
+    cd intelligent_monitoring
 
 2. Install Python Dependencies
 
-pip install -r requirements.txt
+    pip install -r requirements.txt
 
 3. Deploy the Monitoring Stack (K8s)
 
-./start_building_env.sh
+    ./start_building_env.sh
 
 4. Now Start checking the environment
-**NOTE this is my environment so do not confuse with the number of days and hours it is up your will be some minutes**
-watch -n 1 kubectl get pods,svc,cm,pv,pvc -n monitoring
+    **NOTE this is my environment so do not confuse with the number of days and hours it is up your will be some minutes**
+    watch -n 1 kubectl get pods,svc,cm,pv,pvc -n monitoring
 
 NAME                                 READY   STATUS    RESTARTS      AGE
 pod/grafana-d997b9cc5-zsnkm          2/2     Running   0             33m
@@ -66,30 +70,32 @@ persistentvolumeclaim/prometheus-pvc   Bound    prometheus-pv       10Gi       R
 
 5. You do not need to start port forwarding it will be done by initiate_project_update.sh
 
-cd .. && chmod +x initiate_project_update.sh && ./initiate_project_update.sh
+    cd .. && chmod +x initiate_project_update.sh && ./initiate_project_update.sh
 
 6. **What Happens Next?**
 
-The script will perform the following sequence:
+    The script will perform the following sequence:
 
-Check K8s Health: Validates that nodes and monitoring pods are Ready.
+    Check K8s Health: Validates that nodes and monitoring pods are Ready.
 
-Port-Forwarding: Tunnels Prometheus (9090), Grafana (3000), and Jaeger (16686) to your localhost.
+    Port-Forwarding: Tunnels Prometheus (9090), Grafana (3000), and Jaeger (16686) to your localhost.
 
-App & Traffic: Starts the Microservices (app.py) and the Traffic Generator.
+    App & Traffic: Starts the Microservices (app.py) and the Traffic Generator.
 
-Launch AI Brain: Starts the Anomaly Detector to begin real-time system analysis.
+    Launch AI Brain: Starts the Anomaly Detector to begin real-time system analysis.
 
 **Dashboards**
 
-Once the script is running, access your insights here:
+    Once the script is running, access your insights here:
 
-Grafana: https://localhost:3000 (View Error Budgets & DORA Metrics)
+    Grafana: https://localhost:3000 (View Error Budgets & DORA Metrics)
 
-Prometheus: http://localhost:9090
+    Prometheus: http://localhost:9090
 
-Jaeger UI: http://localhost:16686
+    Jaeger UI: http://localhost:16686
 
-Shutdown
-To stop all services and background processes safely, simply press Ctrl+C in the terminal. The script will trigger a cleanup function to kill all background PIDs.
+**Shutdown**
+
+    To stop all services and background processes safely, simply press Ctrl+C in the terminal. The script will trigger a cleanup function to kill all background PIDs.
+
 #intelligent_monitoring
