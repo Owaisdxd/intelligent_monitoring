@@ -536,17 +536,27 @@ start_traffic() {
     log_error "Traffic script not found: ${TRAFFIC_SCRIPT}"
     exit 1
   fi
-
+  cd "$PROJECT_DIR"
   log_info "Launching: python3 ${TRAFFIC_SCRIPT}"
-  python3 "$TRAFFIC_SCRIPT" &
+  xport TRAFFIC_SCRIPT && echo "Path has been added $TRAFFIC_SCRIPT"
+  gnome-terminal -- env bash -c "source /home/os/anaconda3/etc/profile.d/conda.sh && conda activate base && python3 $TRAFFIC_SCRIPT; exec bash" &
   BACKGROUND_PIDS+=("$!")
   log_ok "Traffic generator started (PID: ${BACKGROUND_PIDS[-1]})"
   sleep 3
 }
 
-#Step 6: Launch AIOps Brain
+#Step 6: Openning the all resources
+k8s_resources() {
+  log_section "Step 6: Openning the all resources in Kubernetes"
+  gnome-terminal -- env bash -c "watch -n 1 kubectl get pods,deploy,cm,svc,pv,pvc -n monitoring" &
+  BACKGROUND_PIDS+=("$!")
+  sleep 2
+}
+
+
+#Step 7: Launch AIOps Brain
 start_brain() {
-  log_section "Step 6 — Launching AIOps Brain"
+  log_section "Step 7 — Launching AIOps Brain"
 
   if [[ ! -f "$BRAIN_SCRIPT" ]]; then
     log_error "AIOps brain script not found: ${BRAIN_SCRIPT}"
@@ -585,7 +595,7 @@ main() {
   watch_port_forwards &
   BACKGROUND_PIDS+=("$!")
   log_ok "Port-forward watcher launched (PID: ${BACKGROUND_PIDS[-1]}, every ${PF_WATCH_INTERVAL}s)"
-
+  k8s_resources
   #Brain runs in foreground (keeps script + trap alive)
   start_brain
 }
