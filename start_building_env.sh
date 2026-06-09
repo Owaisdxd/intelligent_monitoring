@@ -28,6 +28,8 @@ kubectl apply -f k8s-manifests/grafana_rbac.yaml
 
 # Configuration Engine Mounts
 kubectl apply -f k8s-manifests/prometheus_cm.yaml
+kubectl apply -f k8s-manifests/prometheus-rules.yaml
+kubectl apply -f k8s-manifests/alertmanager_cm.yaml
 kubectl apply -f k8s-manifests/otel-collector_cm.yaml
 kubectl apply -f k8s-manifests/jaeger_cm.yaml
 kubectl apply -f k8s-manifests/grafana-dashboards.yaml 2>/dev/null
@@ -37,6 +39,8 @@ kubectl apply -f k8s-manifests/slo-rules.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/prometheus_deploy.yaml
 kubectl apply -f k8s-manifests/prometheus_svc.yaml
 kubectl apply -f k8s-manifests/jaeger_deploy.yaml
+kubectl apply -f k8s-manifests/alertmanager_deploy.yaml
+kubectl apply -f k8s-manifests/alertmanager_svc.yaml
 kubectl apply -f k8s-manifests/otel-collector_deploy.yaml
 kubectl apply -f k8s-manifests/otel-collector_svc.yaml
 

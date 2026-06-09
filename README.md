@@ -45,38 +45,38 @@ This platform automates infrastructure health checks, monitors SLOs, and perform
     **NOTE this is my environment so do not confuse with the number of days and hours it is up your will be some minutes**
 watch -n 1 kubectl get pods,svc,cm,pv,pvc -n monitoring
 
-**NAME                                    READY       STATUS      RESTARTS        AGE**
+**NAME                                    READY       STATUS      RESTARTS        AGE*
 pod/grafana-d997b9cc5-zsnkm             2/2         Running     0               33m
 pod/jaeger-5754dcd74c-m55w9             1/1         Running     1 (14h ago)     4d12h
 pod/otel-collector-dc8b885d7-65thh      1/1         Running     1 (14h ago)     4d12h
 pod/otel-collector-dc8b885d7-x9jft      1/1         Running     1 (14h ago)     4d12h
-pod/prometheus-6d4b48bc89-t7zng         1/1         Running     1 (14h ago)     4d12h
+pod/prometheus-6d4b48bc89-t7zng         1/1         Running     1 (14h ago)     4d12h**
 
 
-**NAME                            TYPE            CLUSTER-IP          EXTERNAL-IP     PORT(S)                       AGE**
+**NAME                            TYPE            CLUSTER-IP          EXTERNAL-IP     PORT(S)                       AGE*
 service/grafana-service         ClusterIP       10.96.137.50        <none>          3000/TCP                      4d12h
 service/jaeger-service          ClusterIP       10.96.30.13         <none>          16686/TCP,4317/TCP,4318/TCP   4d12h
 service/otel-collector          ClusterIP       10.96.202.247       <none>          4317/TCP,4318/TCP,8889/TCP    4d12h
-service/prometheus-service      ClusterIP       10.96.103.202       <none>          9090/TCP                      4d12h
+service/prometheus-service      ClusterIP       10.96.103.202       <none>          9090/TCP                      4d12h**
 
 
-**NAME                                DATA        AGE**
+**NAME                                DATA        AGE*
 configmap/grafana-dashboard         1           4d12h
 configmap/kube-root-ca.crt          1           4d12h
 configmap/otel-collector-config     1           4d12h
-configmap/prometheus-config         1           4d12h
+configmap/prometheus-config         1           4d12h**
 
 
-**NAME                                    CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS     VOLUMEATTRIBUTESCLASS   REASON   AGE**
+**NAME                                    CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                       STORAGECLASS     VOLUMEATTRIBUTESCLASS   REASON   AGE
 persistentvolume/grafana-pv-manual      5Gi        RWO            Retain           Bound    monitoring/grafana-pvc      manual-storage   <unset>                          2d20h
 persistentvolume/jaeger-pv              10Gi       RWO            Retain           Bound    monitoring/jaeger-pvc       manual-storage   <unset>                          4d12h
-persistentvolume/prometheus-pv          10Gi       RWO            Retain           Bound    monitoring/prometheus-pvc   manual-storage   <unset>                          4d12h
+persistentvolume/prometheus-pv          10Gi       RWO            Retain           Bound    monitoring/prometheus-pvc   manual-storage   <unset>                          4d12h**
 
 
-**NAME**                                    STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS     VOLUMEATTRIBUTESCLASS   AGE**
+**NAME**                                    STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS     VOLUMEATTRIBUTESCLASS   AGE
 persistentvolumeclaim/grafana-pvc       Bound    grafana-pv-manual   5Gi        RWO            manual-storage   <unset>                 2d20h
 persistentvolumeclaim/jaeger-pvc        Bound    jaeger-pv           10Gi       RWO            manual-storage   <unset>                 4d12h
-persistentvolumeclaim/prometheus-pvc    Bound    prometheus-pv       10Gi       RWO            manual-storage   <unset>                 4d12h
+persistentvolumeclaim/prometheus-pvc    Bound    prometheus-pv       10Gi       RWO            manual-storage   <unset>                 4d12h**
 
 5. You do not need to start port forwarding it will be done by initiate_project_update.sh
 
