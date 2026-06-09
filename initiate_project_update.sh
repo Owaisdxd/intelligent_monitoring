@@ -4,7 +4,7 @@
 #  Boots the full stack: K8s checks → port-forwards → services → traffic → brain
 # =============================================================================
 read -p "Please Enter the PROJECT_DIR path :" pro_dir
-echo "You enetered $pro_dir "
+echo "You entered $pro_dir "
 set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -17,24 +17,27 @@ NAMESPACE="monitoring"
 PROMETHEUS_SVC="prometheus-service"
 GRAFANA_SVC="grafana-service"
 JAEGER_SVC="jaeger-service"
+ALERT_MANAGER_SVC="alertmanager"
 OTEL_COLLECTOR_SVC="otel-collector"
-OTEL_HTTP_PORT=4318
 
+OTEL_HTTP_PORT=4318
 PROMETHEUS_PORT=9090
 GRAFANA_PORT=3000
 JAEGER_UI_PORT=16686
 JAEGER_OTLP_PORT=4318
+ALERT_MANAGER_PORT=9093
 
 PORT_FORWARD_WAIT=8
 PORT_CHECK_RETRIES=5
 PORT_CHECK_INTERVAL=2
 
-# ── Watcher config ────────────────────────────────────────────────────────────
+#Watcher config
 POD_WATCH_INTERVAL=60          # check pods every 1 minute
-PF_WATCH_INTERVAL=30            # check port-forwards every 30 seconds
+PF_WATCH_INTERVAL=15            # check port-forwards every 30 seconds
 PF_RESTART_MAX_ATTEMPTS=1       # max auto-restart attempts per service
 
-# Directory that holds all *_deploy.yaml files (grafana_deploy.yaml, etc.)
+# Directory that holds all *_deploy.yaml files (deployment)
+
 DEPLOY_DIR="${PROJECT_DIR}/k8s-manifests"
 DEPLOY_READY_WAIT=30            # seconds to wait after kubectl apply before re-checking
 
@@ -43,7 +46,7 @@ mkdir -p "$PF_LOG_DIR"
 
 BACKGROUND_PIDS=()
 
-# ── Colors & Logging ──────────────────────────────────────────────────────────
+#Colors & Logging
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -63,17 +66,17 @@ log_section() {
   echo -e "${BOLD}${CYAN}══════════════════════════════════════════${NC}"
 }
 
-# ── Cleanup on exit ───────────────────────────────────────────────────────────
+#Cleanup on exit
 cleanup() {
   echo ""
-  log_warn "Shutting down — killing background processes..."
+  log_warn "Shutting down  killing background processes..."
   for pid in "${BACKGROUND_PIDS[@]}"; do
     kill "$pid" 2>/dev/null && log_info "Killed PID $pid" || true
   done
 }
 trap cleanup EXIT INT TERM
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+#Helpers
 wait_for_port() {
   local name="$1"
   local port="$2"
@@ -92,9 +95,6 @@ wait_for_port() {
   log_error "${name} on port ${port} is NOT reachable after ${retries} attempts."
   return 1   # caller must handle; do NOT exit here
 }
-port_forward_grafana_https() {
-  gnome-terminal -- bash -c "kubectl port-forward svc/ingress-nginx-controller 8443:443 -n ingress-nginx ; exec bash"
-}
 
 port_is_open() {
   nc -z 127.0.0.1 "$1" 2>/dev/null
@@ -112,11 +112,11 @@ start_port_forward() {
     > "$logfile" 2>&1 &
   local pid=$!
   BACKGROUND_PIDS+=("$pid")
-  log_info "Port-forward PID: ${pid} (logs: ${logfile})"
+  log_info "Port_forward PID: ${pid} (logs: ${logfile})"
   sleep "$PORT_FORWARD_WAIT"
 }
 
-# ── Watcher 1: Pod Health ─────────────────────────────────────────────────────
+#Watcher 1: Pod Health
 # Runs in the background, checks every POD_WATCH_INTERVAL seconds.
 # Warns about any pod not in Running/Completed state and lists its events.
 watch_pod_health() {
@@ -130,8 +130,7 @@ watch_pod_health() {
 
     # Collect pods not in Running or Completed state
     local bad_pods
-    bad_pods=$(kubectl get pods -n "$NAMESPACE" --no-headers 2>/dev/null \
-      | grep -v -E "Running|Completed" || true)
+    bad_pods=$(kubectl get pods -n "$NAMESPACE" --no-headers 2>/dev/null| grep -v -E "Running|Completed" || true)
 
     if [[ -z "$bad_pods" ]]; then
       log_watch "[${timestamp}] All pods healthy in namespace '${NAMESPACE}'."
@@ -143,7 +142,7 @@ watch_pod_health() {
       echo "$bad_pods"
       echo ""
 
-      # For each unhealthy pod, show recent events to help diagnose
+      # For each unhealthy pod, show recent events to help diagnose (most importantly you do not have to run kubectl describe to get the events details)
       while IFS= read -r line; do
         local pod_name
         pod_name=$(echo "$line" | awk '{print $1}')
@@ -152,10 +151,7 @@ watch_pod_health() {
 
         log_warn "  Pod '${pod_name}' is in state: ${pod_status}"
         log_info  "  Recent events for '${pod_name}':"
-        kubectl describe pod "$pod_name" -n "$NAMESPACE" 2>/dev/null \
-          | awk '/^Events:/,0' \
-          | tail -n 10 \
-          | sed 's/^/    /'
+        kubectl describe pod "$pod_name" -n "$NAMESPACE" 2>/dev/null| awk '/^Events:/,0'| tail -n 10| sed 's/^/    /'
         echo ""
       done <<< "$bad_pods"
 
@@ -177,14 +173,13 @@ recover_service() {
   log_warn "[${timestamp}] RECOVERY ESCALATION — starting deep recovery for '${name}'"
   log_warn "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # ── Stage 1: Check for running pods ──────────────────────────────────────
+  #Stage 1: Check for running pods
   log_info "  [1/3] Checking for pods matching service '${svc}' in namespace '${NAMESPACE}'..."
 
   # Get the label selector from the Service so we find the right pods
   local selector
   selector=$(kubectl get svc "$svc" -n "$NAMESPACE" \
-    -o jsonpath='{.spec.selector}' 2>/dev/null \
-    | tr -d '{}' | sed 's/"//g' | sed 's/:/=/g' | sed 's/,/,/g' || true)
+    -o jsonpath='{.spec.selector}' 2>/dev/null| tr -d '{}' | sed 's/"//g' | sed 's/:/=/g' | sed 's/,/,/g' || true)
 
   local pod_count=0
   if [[ -n "$selector" ]]; then
@@ -200,7 +195,7 @@ recover_service() {
 
   log_warn "  [1/3] No running pods found for '${name}'. Checking Deployment..."
 
-  # ── Stage 2: Check for the Deployment object ──────────────────────────────
+  #Stage 2: Check for the Deployment object
   log_info "  [2/3] Looking for Deployment for service '${svc}' in namespace '${NAMESPACE}'..."
 
   # Try common deployment naming patterns: exact svc name, or strip trailing "-service"
@@ -225,11 +220,11 @@ recover_service() {
       log_error "  Rollout restart failed for '${deploy_name}'."
     fi
   else
-    # ── Stage 3: No Deployment found — apply the YAML ──────────────────────
+    #Stage 3: No Deployment found — apply the YAML
     log_warn "  [2/3] No existing Deployment found for '${name}'."
     log_info "  [3/3] Searching for deploy manifest in: ${DEPLOY_DIR}"
 
-    # Build expected filename: e.g. grafana → grafana_deploy.yaml
+    # Build expected filename: e.g. grafana grafana_deploy.yaml
     # Also try the short name (strip -service suffix)
     local short_name="${name%-service}"
     local yaml_path=""
@@ -277,7 +272,7 @@ recover_service() {
     fi
   fi
 
-  # ── Final: attempt to restore port-forward ────────────────────────────────
+  #Final: attempt to restore port-forward
   log_info "  Attempting to restore port-forward for '${name}' after recovery..."
 
   local stale_pid
@@ -288,7 +283,7 @@ recover_service() {
   fi
 
   local logfile="${PF_LOG_DIR}/${name}.log"
-  # shellcheck disable=SC2086
+  #shellcheck disable=SC2086
   kubectl port-forward "svc/${svc}" $ports -n "$NAMESPACE" \
     > "$logfile" 2>&1 &
   local pf_pid=$!
@@ -296,7 +291,7 @@ recover_service() {
   sleep "$PORT_FORWARD_WAIT"
 
   if port_is_open "$check_port"; then
-    log_ok "  '${name}' fully recovered → http://127.0.0.1:${check_port} (PID: ${pf_pid})"
+    log_ok "  '${name}' fully recovered > http://127.0.0.1:${check_port} (PID: ${pf_pid})"
     echo ""
     return 0
   else
@@ -307,11 +302,12 @@ recover_service() {
   fi
 }
 
-# ── Watcher 2: Port-Forward Health ───────────────────────────────────────────
+#Watcher 2: Port-Forward Health
 # Runs in the background, checks every PF_WATCH_INTERVAL seconds.
 # If a port is unreachable it kills the stale kubectl process (if any),
 # restarts the port-forward, and verifies it comes back up.
 # Gives up after PF_RESTART_MAX_ATTEMPTS consecutive failures per service.
+
 watch_port_forwards() {
   log_watch "Port-forward watcher started (interval: ${PF_WATCH_INTERVAL}s)"
 
@@ -322,18 +318,22 @@ watch_port_forwards() {
     [grafana]="$GRAFANA_SVC"
     [jaeger]="$JAEGER_SVC"
     [otel-collector]="$OTEL_COLLECTOR_SVC"
+    [otel-collector]="$OTEL_COLLECTOR_SVC"
+    [ALERT_MANAGER]="$ALERT_MANAGER_SVC"
   )
   declare -A PF_PORTS=(
     [prometheus]="${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
     [grafana]="${GRAFANA_PORT}:${GRAFANA_PORT}"
     [jaeger]="${JAEGER_UI_PORT}:${JAEGER_UI_PORT} ${JAEGER_OTLP_PORT}:${JAEGER_OTLP_PORT}"
     [otel-collector]="${OTEL_HTTP_PORT}:${OTEL_HTTP_PORT}"
+    [ALERT_MANAGER]="${ALERT_MANAGER_PORT}:${ALERT_MANAGER_PORT}"
   )
   declare -A PF_CHECK_PORT=(
     [prometheus]="$PROMETHEUS_PORT"
     [grafana]="$GRAFANA_PORT"
     [jaeger]="$JAEGER_UI_PORT"
     [otel-collector]="$OTEL_HTTP_PORT"
+    [ALERT_MANAGER]="$ALERT_MANAGER_PORT"
   )
   # Track consecutive failures per service
   declare -A PF_FAILURES=(
@@ -341,6 +341,7 @@ watch_port_forwards() {
     [grafana]=0
     [jaeger]=0
     [otel-collector]=0
+    [ALERT_MANAGER]=0
   )
 
   while true; do
@@ -357,7 +358,7 @@ watch_port_forwards() {
       if port_is_open "$check_port"; then
         # Port is up — reset failure counter
         PF_FAILURES[$name]=0
-        log_watch "[${timestamp}] ${name} OK → http://127.0.0.1:${check_port}"
+        log_watch "[${timestamp}] ${name} OK > http://127.0.0.1:${check_port}"
       else
         local failures=$(( PF_FAILURES[$name] + 1 ))
         PF_FAILURES[$name]=$failures
@@ -370,7 +371,7 @@ watch_port_forwards() {
 
         if [[ "$failures" -gt "$PF_RESTART_MAX_ATTEMPTS" ]]; then
           log_error "  Max port-forward restart attempts reached for '${name}'."
-          log_warn "  Escalating to deep recovery (pod → deployment → YAML apply)..."
+          log_warn "  Escalating to deep recovery (pod > deployment > YAML apply)..."
           if recover_service "$name" "$svc" "$ports" "$check_port"; then
             PF_FAILURES[$name]=0
           fi
@@ -397,7 +398,7 @@ watch_port_forwards() {
         sleep "$PORT_FORWARD_WAIT"
 
         if port_is_open "$check_port"; then
-          log_ok "  '${name}' port-forward restored → http://127.0.0.1:${check_port} (PID: ${new_pid})"
+          log_ok "  '${name}' port-forward restored > http://127.0.0.1:${check_port} (PID: ${new_pid})"
           PF_FAILURES[$name]=0
         else
           log_error "  '${name}' still unreachable after restart attempt ${failures}."
@@ -408,7 +409,7 @@ watch_port_forwards() {
   done
 }
 
-# ── Step 1: Check Kubernetes nodes ───────────────────────────────────────────
+#Step 1: Check Kubernetes nodes
 check_nodes() {
   log_section "Step 1 — Kubernetes Node Health"
 
@@ -430,7 +431,7 @@ check_nodes() {
   kubectl get nodes
 }
 
-# ── Step 2: Check pods in monitoring namespace ────────────────────────────────
+#Step 2: Check pods in monitoring namespace
 check_pods() {
   log_section "Step 2 — Pod Health in namespace '${NAMESPACE}'"
 
@@ -449,7 +450,7 @@ check_pods() {
   kubectl get pods -n "$NAMESPACE"
 }
 
-# ── Step 3: Port-forward Prometheus, Grafana, Jaeger, OTel ───────────────────
+#Step 3: Port-forward Prometheus, Grafana, Jaeger, OTel
 # For each service we try the port-forward first. If the port is still not
 # reachable after all retries we immediately call recover_service() — which
 # checks pods → deployment → YAML apply — right here at boot time, before
@@ -490,26 +491,27 @@ setup_port_forwards() {
   _boot_pf "grafana"        "$GRAFANA_SVC"         "${GRAFANA_PORT}:${GRAFANA_PORT}"                                         "$GRAFANA_PORT"
   _boot_pf "jaeger"         "$JAEGER_SVC"          "${JAEGER_UI_PORT}:${JAEGER_UI_PORT} ${JAEGER_OTLP_PORT}:${JAEGER_OTLP_PORT}" "$JAEGER_UI_PORT"
   _boot_pf "otel-collector" "$OTEL_COLLECTOR_SVC"  "${OTEL_HTTP_PORT}:${OTEL_HTTP_PORT}"                                    "$OTEL_HTTP_PORT"
-
+  _boot_pf "ALERTMANAGER"     "$ALERT_MANAGER_SVC"     "${ALERT_MANAGER_PORT}:${ALERT_MANAGER_PORT}"                          "$ALERT_MANAGER_PORT"
   echo ""
   log_info "Port-forward startup summary:"
   for _entry in \
     "Prometheus|${PROMETHEUS_PORT}" \
     "Grafana|${GRAFANA_PORT}" \
     "Jaeger UI|${JAEGER_UI_PORT}" \
-    "OTel Collector|${OTEL_HTTP_PORT}"
+    "OTel Collector|${OTEL_HTTP_PORT}" \
+    "ALERT_MANAGER|${ALERT_MANAGER_PORT}"
   do
     local _label="${_entry%%|*}"
     local _port="${_entry##*|}"
     if port_is_open "$_port"; then
-      log_ok "  • ${_label} → http://127.0.0.1:${_port}"
+      log_ok "  • ${_label} > http://127.0.0.1:${_port}"
     else
-      log_warn "  • ${_label} → http://127.0.0.1:${_port}  [NOT reachable — watcher will retry]"
+      log_warn "  • ${_label} > http://127.0.0.1:${_port}  [NOT reachable — watcher will retry]"
     fi
   done
 }
 
-# ── Step 4: Start microservices ───────────────────────────────────────────────
+#Step 4: Start microservices
 start_services() {
   log_section "Step 4 — Starting Microservices"
 
@@ -517,15 +519,16 @@ start_services() {
     log_error "Services script not found: ${SERVICES_SCRIPT}"
     exit 1
   fi
-
+  cd "$PROJECT_DIR"
   log_info "Launching: python3 ${SERVICES_SCRIPT}"
-  python3 "$SERVICES_SCRIPT" &
+  export SERVICES_SCRIPT && echo "Path has been added $SERVICES_SCRIPT"
+  gnome-terminal -- env bash -c "source /home/os/anaconda3/etc/profile.d/conda.sh && conda activate base && python3 $SERVICES_SCRIPT; exec bash" &
   BACKGROUND_PIDS+=("$!")
   log_ok "Microservices started (PID: ${BACKGROUND_PIDS[-1]})"
   sleep 5
 }
 
-# ── Step 5: Initialize traffic ────────────────────────────────────────────────
+#Step 5: Initialize traffic
 start_traffic() {
   log_section "Step 5 — Initializing Traffic Generator"
 
@@ -541,7 +544,7 @@ start_traffic() {
   sleep 3
 }
 
-# ── Step 6: Launch AIOps Brain ────────────────────────────────────────────────
+#Step 6: Launch AIOps Brain
 start_brain() {
   log_section "Step 6 — Launching AIOps Brain"
 
@@ -557,7 +560,7 @@ start_brain() {
   python3 "$BRAIN_SCRIPT"
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+#Main
 main() {
   echo ""
   echo -e "${BOLD}${CYAN}"
@@ -568,12 +571,11 @@ main() {
 
   check_nodes
   check_pods
-  port_forward_grafana_https
   setup_port_forwards
   start_services
   start_traffic
 
-  # ── Launch background watchers ──────────────────────────────────────────────
+  #Launch background watchers
   log_section "Background Watchers"
 
   watch_pod_health &
@@ -584,7 +586,7 @@ main() {
   BACKGROUND_PIDS+=("$!")
   log_ok "Port-forward watcher launched (PID: ${BACKGROUND_PIDS[-1]}, every ${PF_WATCH_INTERVAL}s)"
 
-  # ── Brain runs in foreground (keeps script + trap alive) ───────────────────
+  #Brain runs in foreground (keeps script + trap alive)
   start_brain
 }
 
