@@ -566,7 +566,6 @@ start_brain() {
   log_info "Launching: python3 ${BRAIN_SCRIPT}"
   log_info "The brain will now run in the foreground. Press Ctrl+C to shut everything down."
   echo ""
-
   python3 "$BRAIN_SCRIPT"
 }
 

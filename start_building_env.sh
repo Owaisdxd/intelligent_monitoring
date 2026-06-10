@@ -19,14 +19,12 @@ kubectl create secret tls grafana-tls-secret \
   --key=k8s-manifests/tls.key \
   --namespace=monitoring
 
-# 3. Step-by-Step Order-Based Kubernetes Deployment
-echo "[INFO] Orchestrating Infrastructure Manifests Layer..."
 
-# Core Networking, Storage and Service Accounts First
+#Core Networking, Storage and Service Accounts First
 kubectl apply -f k8s-manifests/service_account.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/grafana_rbac.yaml
 
-# Configuration Engine Mounts
+#Configuration
 kubectl apply -f k8s-manifests/prometheus_cm.yaml
 kubectl apply -f k8s-manifests/prometheus-rules.yaml
 kubectl apply -f k8s-manifests/alertmanager_cm.yaml
@@ -35,7 +33,7 @@ kubectl apply -f k8s-manifests/jaeger_cm.yaml
 kubectl apply -f k8s-manifests/grafana-dashboards.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/slo-rules.yaml 2>/dev/null
 
-# Core Backend Services Infrastructure Triggers
+#Core Backend Services Infrastructure Triggers
 kubectl apply -f k8s-manifests/prometheus_deploy.yaml
 kubectl apply -f k8s-manifests/prometheus_svc.yaml
 kubectl apply -f k8s-manifests/jaeger_deploy.yaml
@@ -44,7 +42,7 @@ kubectl apply -f k8s-manifests/alertmanager_svc.yaml
 kubectl apply -f k8s-manifests/otel-collector_deploy.yaml
 kubectl apply -f k8s-manifests/otel-collector_svc.yaml
 
-# Main Application & Secured Grafana Portal Deployment
+#Secured Grafana Portal Deployment
 kubectl apply -f k8s-manifests/grafana_deploy.yaml
 kubectl apply -f k8s-manifests/grafana_svc.yaml
 kubectl apply -f k8s-manifests/grafana_ingress.yaml
