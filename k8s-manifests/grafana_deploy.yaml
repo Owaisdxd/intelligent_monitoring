@@ -47,6 +47,8 @@ spec:
               value: "admin"
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: "admin123"
+            - name: GF_SECURITY_ALLOW_EMBEDDING
+              value: "true"
             - name: GF_SERVER_PROTOCOL
               value: "https"
             - name: GF_SERVER_CERT_FILE
@@ -57,6 +59,30 @@ spec:
               value: "https://127.0.0.1:3000/"
             - name: GF_DASHBOARDS_ANNOTATION_LIMIT
               value: "100"
+            - name: GF_AUTH_GITHUB_ENABLED
+              value: "true"
+            - name: GF_AUTH_GITHUB_ALLOW_SIGN_UP
+              value: "true"
+            - name: GF_AUTH_GITHUB_SCOPES
+              value: "user:email,read:org"
+            - name: GF_AUTH_GITHUB_REDIRECT_URI
+              value: "https://github.com/login/oauth/authorize"
+            - name: GF_AUTH_GITHUB_AUTH_URL
+              value: "https://github.com/login/oauth/authorize"
+            - name: GF_AUTH_GITHUB_TOKEN_URL
+              value: "https://github.com/login/oauth/access_token"
+            - name: GF_AUTH_GITHUB_API_URL
+              value: "https://api.github.com/user"
+            - name: GF_AUTH_GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-github-oauth
+                  key: client_id
+            - name: GF_AUTH_GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-github-oauth
+                  key: client_secret
             - name: GF_LOG_LEVEL
               value: "warn"
             - name: GF_AUTH_ANONYMOUS_ENABLED
@@ -68,7 +94,6 @@ spec:
             - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
               value: "/tmp/dashboards/intelligent-observability.json"
           volumeMounts:
-            # FIX 1: Sirf ek sahi volume mount rakha jo permanent storage se connected hai
             - name: grafana-permanent-storage
               mountPath: /var/lib/grafana
             - name: sc-dashboard-volume
@@ -77,7 +102,6 @@ spec:
               mountPath: /etc/grafana/certs
               readOnly: true
       volumes:
-        # FIX 2: emptyDir ko hata kar aapka real PersistentVolumeClaim connect kar diya hai
         - name: grafana-permanent-storage
           persistentVolumeClaim:
             claimName: grafana-pvc
