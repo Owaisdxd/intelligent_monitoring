@@ -5,6 +5,8 @@ from sklearn.ensemble import IsolationForest
 import json
 import os
 import logging
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─────────────────────────────────────────────
 # STRUCTURED LOGGING SETUP
@@ -18,14 +20,10 @@ log = logging.getLogger(__name__)
 SERVICE_NAME = os.getenv("MONITOR_SERVICE", "payment-api")
 PROM_URL     = "http://127.0.0.1:9090/api/v1/query"
 JAEGER_URL   = "http://127.0.0.1:16686"
-DATA_FILE          = "/home/os/PycharmProjects/project/InelObservPlatform/aiops-engine"
+DATA_FILE          = "/home/os/PycharmProjects/project/InelObservPlatform/aiops-engine/"
 MIN_POINTS         = 10      
 SLO_COOLDOWN_SEC   = 60
 ANOMALY_COOLDOWN_SEC = 30
-import urllib3
-
-# InsecureRequestWarning ko disable karne ke liye
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─────────────────────────────────────────────
 # CONFIGURATIONS  (all tuneable values in one place)
@@ -36,16 +34,10 @@ JAEGER_URL           = "http://127.0.0.1:16686"
 GRAFANA_ANNOTATION_URL = "https://127.0.0.1:3000/api/annotations"
 DATA_FILE            = "data_points.json"
 
-# BUG FIX 1 ─ token must be a plain string in f-string, NOT a set literal {token}
-# Old (broken): "Authorization": {token}   ← this creates a Python set, not a string
-# Fixed:        "Authorization": f"Bearer {token}"
-GRAFANA_TOKEN = os.getenv("GRAFANA_TOKEN", "")
-PROM_TOKEN    = os.getenv("PROM_TOKEN", "")        # set if your Prometheus also needs auth
 
-# BUG FIX 2 ─ keyword argument is `headers`, not `header` (no trailing s = TypeError → None)
-# All requests.get() calls were using header=headers which is silently ignored by requests,
-# so every call went unauthenticated and likely returned a 401/403 → exception → None.
-# Fixed by using a shared session with headers baked in.
+GRAFANA_TOKEN = os.getenv("GRAFANA_TOKEN")
+PROM_TOKEN    = os.getenv("PROM_TOKEN")        # set if your Prometheus also needs auth but as of now not required
+GRAFANA_ANNOTATIONS_ENABLED = True
 prom_session = requests.Session()
 prom_session.headers.update({
     "Authorization": f"Bearer {PROM_TOKEN}",
@@ -55,6 +47,7 @@ prom_session.headers.update({
 grafana_session = requests.Session()
 grafana_session.headers.update({
     "Authorization": f"Bearer {GRAFANA_TOKEN}",
+    "X-Grafana-Org-Id": "1",
     "Content-Type": "application/json",
 })
 
@@ -72,11 +65,11 @@ RANDOM_STATE         = 42
 
 
 GRAFANA_TOKEN = os.getenv("GRAFANA_API_KEY")
-
-GRAFANA_ANNOTATION_URL = "https://127.0.0.1:3000/api/annotations"
+GRAFANA_ANNOTATION_URL="https://127.0.0.1:3000/api/annotations"
 grafana_session.verify = False
 headers = {
-    "Authorization":{"GRAFANA_API_KEY"},
+    "Authorization": f"Bearer {GRAFANA_TOKEN}",
+    "X-Grafana-Org-Id": "1",
     "Content-Type": "application/json"
 }
 
@@ -97,7 +90,7 @@ def save_data(data_points: list) -> None:
     trimmed = data_points[-MAX_HISTORY:]
     with open(DATA_FILE, "w") as f:
         json.dump(trimmed, f)
-    return trimmed   # caller should reassign: data_points = save_data(data_points)
+    return trimmed
 
 
 # ─────────────────────────────────────────────
@@ -105,7 +98,7 @@ def save_data(data_points: list) -> None:
 # ─────────────────────────────────────────────
 def _prom_query(query: str) -> list:
     """
-    Shared helper — runs a PromQL query and returns the result list.
+    Shared helper > runs a PromQL query and returns the result list.
     Raises on network or parse errors so callers can handle specifically.
     """
     resp = prom_session.get(PROM_URL, params={"query": query}, timeout=REQUEST_TIMEOUT)
@@ -128,7 +121,7 @@ def get_request_rate() -> float | None:
 
 
 def fetch_slo_metric() -> float:
-    """Fetch SLO availability % — ratio of 200 responses to total requests."""
+    """Fetch SLO availability % > ratio of 200 responses to total requests."""
     query = (
         "(sum(rate(http_requests_total{http_status='200'}[5m])) "
         "/ sum(rate(http_requests_total[5m]))) * 100"
@@ -146,7 +139,6 @@ def fetch_slo_metric() -> float:
 
 
 def get_error_rate() -> float | None:
-    """Fetch 5xx error rate from Prometheus."""
     try:
         result = _prom_query("rate(http_requests_total{status=~'5..'}[1m])")
         return float(result[0]["value"][1]) if result else 0.0
@@ -160,7 +152,7 @@ def get_error_rate() -> float | None:
 
 
 def get_p99_latency() -> float | None:
-    """Fetch 99th percentile latency from Prometheus."""
+
     try:
         result = _prom_query(
             "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))"
@@ -179,13 +171,9 @@ def get_p99_latency() -> float | None:
 # ROOT CAUSE ANALYSIS
 # ─────────────────────────────────────────────
 def get_latest_trace_id(service: str = SERVICE_NAME) -> str | None:
-    """Fetch the most recent trace ID for the service from Jaeger."""
     url = f"{JAEGER_URL}/api/traces"
     params = {"service": service, "limit": 1, "lookback": "2m"}
     try:
-        # BUG FIX 3 ─ timeout was assigned AFTER the request call (had no effect)
-        # Old: r = requests.get(...); timeout=5   ← timeout was a dangling assignment
-        # Fixed: timeout is now passed into the call correctly via the session
         r = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
         data = r.json().get("data", [])
         if data:
@@ -200,7 +188,6 @@ def get_latest_trace_id(service: str = SERVICE_NAME) -> str | None:
 
 
 def get_root_cause(trace_id: str, service: str = SERVICE_NAME) -> str:
-    """Identify the slowest span in a trace as the likely root cause."""
     url = f"{JAEGER_URL}/api/traces/{trace_id}"
     try:
         response = requests.get(url, params={"service": service}, timeout=REQUEST_TIMEOUT)
@@ -235,7 +222,6 @@ def get_root_cause(trace_id: str, service: str = SERVICE_NAME) -> str:
 # GRAFANA ANNOTATION
 # ─────────────────────────────────────────────
 def post_to_grafana(text: str, tags: list = None) -> None:
-    """Post an annotation (vertical marker) to the Grafana dashboard."""
     if tags is None:
         tags = ["ai-anomaly"]
     payload = {
@@ -280,13 +266,13 @@ while True:
     now          = time.time()
     loop_counter += 1
 
-    # ── Fetch all metrics ────────────────────
+    #Fetch all metrics
     req_rate = get_request_rate()
     err_rate = get_error_rate()
     p99      = get_p99_latency()
     slo_val  = fetch_slo_metric()
 
-    # ── Step A: SLO Violation Check ──────────
+    #Step A: SLO Violation Check
     if slo_val < SLO_THRESHOLD:
         if now - last_slo_alert_time >= SLO_COOLDOWN_SEC:
             log.warning(
@@ -298,7 +284,7 @@ while True:
             remaining = int(SLO_COOLDOWN_SEC - (now - last_slo_alert_time))
             log.info("SLO still degraded: %.2f%% (next alert in %ds)", slo_val, remaining)
 
-    # ── Step B: Anomaly Detection ────────────
+    #Step B: Anomaly Detection
     if all(v is not None for v in [req_rate, err_rate, p99]):
 
         data_points.append([req_rate, err_rate, p99])
@@ -307,8 +293,6 @@ while True:
         if len(data_points) >= MIN_POINTS:
             X = np.array(data_points[-TRAIN_WINDOW:])
 
-            # Retrain only on first fit or every RETRAIN_EVERY iterations
-            # (not every single loop cycle — that was wasteful and noisy)
             if not model_trained or loop_counter % RETRAIN_EVERY == 0:
                 model.fit(X)
                 model_trained = True
@@ -323,7 +307,7 @@ while True:
                         req_rate, err_rate, p99
                     )
 
-                    # ── Step C: Root Cause Analysis ──────────
+                    #Step C: Root Cause Analysis
                     latest_id = get_latest_trace_id(SERVICE_NAME)
                     if latest_id:
                         cause = get_root_cause(latest_id, service=SERVICE_NAME)
@@ -332,8 +316,8 @@ while True:
                         cause = "No recent traces found in Jaeger"
                         log.warning("Root cause: %s", cause)
 
-                    # ── Step D: Deployment Risk + Grafana alert ───
-                    log.warning("High deployment risk — halt rollout immediately")
+                    #Step D: Deployment Risk + Grafana alert
+                    log.warning("High deployment risk  halt rollout immediately")
                     alert_msg = (
                         f"<b>AI Alert:</b> Anomaly detected on {SERVICE_NAME}<br>"
                         f"<b>RCA:</b> {cause}<br>"
