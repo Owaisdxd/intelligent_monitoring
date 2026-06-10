@@ -1,48 +1,49 @@
 import requests
 import time
 import numpy as np
+import pandas as pd
 from sklearn.ensemble import IsolationForest
+from sklearn.linear_model import LinearRegression
 import json
 import os
 import logging
 import urllib3
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ─────────────────────────────────────────────
-# STRUCTURED LOGGING SETUP
-# ─────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
 log = logging.getLogger(__name__)
-SERVICE_NAME = os.getenv("MONITOR_SERVICE", "payment-api")
-PROM_URL     = "http://127.0.0.1:9090/api/v1/query"
-JAEGER_URL   = "http://127.0.0.1:16686"
-DATA_FILE          = "/home/os/PycharmProjects/project/InelObservPlatform/aiops-engine/"
-MIN_POINTS         = 10      
-SLO_COOLDOWN_SEC   = 60
-ANOMALY_COOLDOWN_SEC = 30
 
-# ─────────────────────────────────────────────
-# CONFIGURATIONS  (all tuneable values in one place)
-# ─────────────────────────────────────────────
-SERVICE_NAME         = os.getenv("MONITOR_SERVICE", "payment-api")
-PROM_URL             = "http://127.0.0.1:9090/api/v1/query"
-JAEGER_URL           = "http://127.0.0.1:16686"
-GRAFANA_ANNOTATION_URL = "https://127.0.0.1:3000/api/annotations"
-DATA_FILE            = "data_points.json"
+# ─────────────────────────────────────────────────────────────
+# CONFIGURATIONS
+# ─────────────────────────────────────────────────────────────
+SERVICE_NAME             = os.getenv("MONITOR_SERVICE", "payment-api")
+PROM_URL                 = "http://127.0.0.1:9090/api/v1/query"
+JAEGER_URL               = "http://127.0.0.1:16686"
+GRAFANA_ANNOTATION_URL   = "http://127.0.0.1:3000/api/annotations"  # FIX: http not https
+DATA_FILE                = "data_points.json"
 
-
-GRAFANA_TOKEN = os.getenv("GRAFANA_TOKEN")
-PROM_TOKEN    = os.getenv("PROM_TOKEN")        # set if your Prometheus also needs auth but as of now not required
+GRAFANA_TOKEN               = os.getenv("GRAFANA_API_KEY", "")
 GRAFANA_ANNOTATIONS_ENABLED = True
+
+MIN_POINTS       = 60
+SLO_THRESHOLD    = 80.0
+SLO_COOLDOWN_SEC = 60
+MAX_HISTORY      = 1500
+TRAIN_WINDOW     = 500
+RETRAIN_EVERY    = 60
+REQUEST_TIMEOUT  = 5
+CONTAMINATION    = 0.1
+RANDOM_STATE     = 42
+
+# ─────────────────────────────────────────────────────────────
+# SESSIONS
+# ─────────────────────────────────────────────────────────────
 prom_session = requests.Session()
-prom_session.headers.update({
-    "Authorization": f"Bearer {PROM_TOKEN}",
-    "Accept": "application/json",
-})
 
 grafana_session = requests.Session()
 grafana_session.headers.update({
@@ -50,78 +51,67 @@ grafana_session.headers.update({
     "X-Grafana-Org-Id": "1",
     "Content-Type": "application/json",
 })
-
-# Tuneable model / alert constants
-MIN_POINTS           = 60       # data points needed before anomaly detection starts
-SLO_THRESHOLD        = 80.0     # SLO availability threshold (%)
-SLO_COOLDOWN_SEC     = 60       # seconds between repeated SLO alerts
-ANOMALY_COOLDOWN_SEC = 30       # seconds between repeated anomaly alerts
-MAX_HISTORY          = 1500     # max data points kept on disk AND in memory
-TRAIN_WINDOW         = 500      # how many recent points to train on
-RETRAIN_EVERY        = 60       # retrain model every N loop iterations (~5 min at 5s interval)
-REQUEST_TIMEOUT      = 5        # seconds for all HTTP calls
-CONTAMINATION        = 0.1      # IsolationForest contamination parameter
-RANDOM_STATE         = 42
-
-
-GRAFANA_TOKEN = os.getenv("GRAFANA_API_KEY")
-GRAFANA_ANNOTATION_URL="https://127.0.0.1:3000/api/annotations"
 grafana_session.verify = False
-headers = {
-    "Authorization": f"Bearer {GRAFANA_TOKEN}",
-    "X-Grafana-Org-Id": "1",
-    "Content-Type": "application/json"
+
+# ─────────────────────────────────────────────────────────────
+# PILLAR II: ALERT CORRELATION STATE
+# ─────────────────────────────────────────────────────────────
+active_incident = {
+    "is_open":     False,
+    "start_time":  None,
+    "alert_count": 0
 }
 
-
-# ─────────────────────────────────────────────
-# PERSISTENCE: Load / Save
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# PERSISTENCE
+# ─────────────────────────────────────────────────────────────
 def load_data() -> list:
-    """Load historical data points from disk (survives restarts)."""
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
+        try:
+            with open(DATA_FILE, "r") as f:
+                raw = json.load(f)
+            # Filter out old 1D data (error_rate & latency both 0)
+            valid = [p for p in raw if not (p[1] == 0.0 and p[2] == 0.0)]
+            if valid:
+                log.info("Loaded %d valid 3D points (%d old 1D filtered)",
+                         len(valid), len(raw) - len(valid))
+                return valid
+        except Exception:
+            pass
     return []
 
 
-def save_data(data_points: list) -> None:
-    """Persist last MAX_HISTORY data points to disk and trim in memory."""
-    trimmed = data_points[-MAX_HISTORY:]
+def save_data(data_points: list) -> list:
+    import math
+    # NaN aur Inf values filter karo
+    clean = [
+        p for p in data_points
+        if all(isinstance(v, (int, float)) and math.isfinite(v) for v in p)
+    ]
+    trimmed = clean[-MAX_HISTORY:]
     with open(DATA_FILE, "w") as f:
         json.dump(trimmed, f)
     return trimmed
 
-
-# ─────────────────────────────────────────────
-# METRIC FETCHERS  (all use session, all have timeout, specific exceptions)
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# METRIC FETCHERS
+# ─────────────────────────────────────────────────────────────
 def _prom_query(query: str) -> list:
-    """
-    Shared helper > runs a PromQL query and returns the result list.
-    Raises on network or parse errors so callers can handle specifically.
-    """
     resp = prom_session.get(PROM_URL, params={"query": query}, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     return resp.json()["data"]["result"]
 
 
 def get_request_rate() -> float | None:
-    """Fetch HTTP request rate (requests/sec) from Prometheus."""
     try:
-        results = _prom_query("rate(http_requests_total[1m])")
-        return float(results[0]["value"][1]) if results else None
-    except requests.Timeout:
-        log.warning("Prometheus timeout fetching request rate")
-    except requests.ConnectionError:
-        log.warning("Prometheus connection error fetching request rate")
-    except (KeyError, IndexError, ValueError) as e:
-        log.warning("Unexpected Prometheus response (request rate): %s", e)
-    return None
+        results = _prom_query("sum(rate(http_requests_total[1m]))")
+        return float(results[0]["value"][1]) if results else 0.0
+    except Exception as e:
+        log.warning("Failed fetching request rate: %s", e)
+        return None
 
 
 def fetch_slo_metric() -> float:
-    """Fetch SLO availability % > ratio of 200 responses to total requests."""
     query = (
         "(sum(rate(http_requests_total{http_status='200'}[5m])) "
         "/ sum(rate(http_requests_total[5m]))) * 100"
@@ -129,222 +119,273 @@ def fetch_slo_metric() -> float:
     try:
         result = _prom_query(query)
         return float(result[0]["value"][1]) if result else 100.0
-    except requests.Timeout:
-        log.warning("Prometheus timeout fetching SLO metric")
-    except requests.ConnectionError:
-        log.warning("Prometheus connection error fetching SLO metric")
-    except (KeyError, IndexError, ValueError) as e:
-        log.warning("Unexpected Prometheus response (SLO): %s", e)
-    return 100.0    # default to 100% (no false SLO alert) on failure
+    except Exception:
+        return 100.0
 
 
 def get_error_rate() -> float | None:
     try:
-        result = _prom_query("rate(http_requests_total{status=~'5..'}[1m])")
+        # FIX 1: http_status — matches app.py Counter label definition
+        result = _prom_query(
+            "sum(rate(http_requests_total{http_status=~'5..'}[1m]))"
+        )
         return float(result[0]["value"][1]) if result else 0.0
-    except requests.Timeout:
-        log.warning("Prometheus timeout fetching error rate")
-    except requests.ConnectionError:
-        log.warning("Prometheus connection error fetching error rate")
-    except (KeyError, IndexError, ValueError) as e:
-        log.warning("Unexpected Prometheus response (error rate): %s", e)
-    return None
+    except Exception:
+        return None
 
 
 def get_p99_latency() -> float | None:
-
     try:
         result = _prom_query(
-            "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))"
+            "histogram_quantile(0.99, "
+            "sum(rate(http_request_duration_seconds_bucket[1m])) by (le))"
         )
         return float(result[0]["value"][1]) if result else 0.0
-    except requests.Timeout:
-        log.warning("Prometheus timeout fetching p99 latency")
-    except requests.ConnectionError:
-        log.warning("Prometheus connection error fetching p99 latency")
-    except (KeyError, IndexError, ValueError) as e:
-        log.warning("Unexpected Prometheus response (p99): %s", e)
-    return None
+    except Exception:
+        return None
 
 
-# ─────────────────────────────────────────────
-# ROOT CAUSE ANALYSIS
-# ─────────────────────────────────────────────
-def get_latest_trace_id(service: str = SERVICE_NAME) -> str | None:
-    url = f"{JAEGER_URL}/api/traces"
+def get_cpu_utilization() -> float:
+    try:
+        # FIX 2: use our recording rule — not non-existent system_cpu_usage
+        result = _prom_query("node:cpu_utilization:percent")
+        return float(result[0]["value"][1]) if result else 0.0
+    except Exception:
+        return 0.0
+
+
+# ─────────────────────────────────────────────────────────────
+# PILLAR III: ROOT CAUSE ANALYSIS
+# ─────────────────────────────────────────────────────────────
+def get_latest_trace_id(service: str) -> str | None:
+    url    = f"{JAEGER_URL}/api/traces"
     params = {"service": service, "limit": 1, "lookback": "2m"}
     try:
-        r = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        r    = requests.get(url, params=params, timeout=REQUEST_TIMEOUT)
         data = r.json().get("data", [])
         if data:
             return data[0]["traceID"]
-    except requests.Timeout:
-        log.warning("Jaeger timeout fetching latest trace ID")
-    except requests.ConnectionError:
-        log.warning("Jaeger connection error fetching trace ID")
-    except (KeyError, IndexError, ValueError) as e:
-        log.warning("Unexpected Jaeger response (trace ID): %s", e)
-    return None
+    except Exception:
+        return None
 
 
-def get_root_cause(trace_id: str, service: str = SERVICE_NAME) -> str:
+def get_root_cause(trace_id: str, service: str) -> str:
     url = f"{JAEGER_URL}/api/traces/{trace_id}"
     try:
-        response = requests.get(url, params={"service": service}, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-        body        = response.json()
-        trace_data  = body["data"][0]
-        spans       = trace_data.get("spans", [])
-        processes   = trace_data.get("processes", {})
+        response  = requests.get(url, params={"service": service}, timeout=REQUEST_TIMEOUT)
+        body      = response.json()
+        spans     = body["data"][0].get("spans", [])
+        processes = body["data"][0].get("processes", {})
 
         if not spans:
-            return "Trace has no spans."
+            return "Trace empty — no spans found"
 
-        slowest_span   = max(spans, key=lambda s: s.get("duration", 0))
-        proc_id        = slowest_span.get("processID")
-        actual_svc     = processes.get(proc_id, {}).get("serviceName", "unknown-service")
-        op             = slowest_span.get("operationName", "unknown-op")
-        dur_ms         = slowest_span.get("duration", 0) / 1000
+        slowest  = max(spans, key=lambda s: s.get("duration", 0))
+        proc_id  = slowest.get("processID")
+        svc_name = processes.get(proc_id, {}).get("serviceName", "unknown")
+        op       = slowest.get("operationName", "unknown")
+        dur_ms   = slowest.get("duration", 0) / 1000
 
-        return f"Bottleneck in {actual_svc} → operation '{op}' took {dur_ms:.1f}ms"
+        # Cross-reference with infrastructure metrics
+        cpu_load = get_cpu_utilization()
+        if cpu_load > 85.0:
+            return (
+                f"Resource Exhaustion — Host CPU @{cpu_load:.1f}% "
+                f"throttling '{op}' in {svc_name}"
+            )
 
-    except requests.Timeout:
-        return "RCA failed: Jaeger request timed out"
-    except requests.ConnectionError:
-        return "RCA failed: could not connect to Jaeger"
-    except KeyError as e:
-        return f"RCA failed: missing key in trace data ({e})"
-    except ValueError as e:
-        return f"RCA failed: bad value in trace data ({e})"
+        return (
+            f"Code-level Bottleneck in '{svc_name}' "
+            f"-> operation '{op}' took {dur_ms:.1f}ms"
+        )
+    except Exception as e:
+        return f"RCA correlation engine error: {e}"
 
 
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # GRAFANA ANNOTATION
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 def post_to_grafana(text: str, tags: list = None) -> None:
+    if not GRAFANA_ANNOTATIONS_ENABLED:
+        return
     if tags is None:
-        tags = ["ai-anomaly"]
+        tags = ["aiops-incident"]
     payload = {
         "text": text,
         "tags": tags,
-        "time": int(time.time() * 1000),   # Grafana expects milliseconds
+        "time": int(time.time() * 1000),
     }
     try:
         r = grafana_session.post(
             GRAFANA_ANNOTATION_URL, json=payload, timeout=REQUEST_TIMEOUT
         )
         if r.status_code == 200:
-            log.info("Annotation posted to Grafana dashboard")
+            log.info("Annotation synced with Grafana visualization plane")
         else:
-            log.warning("Grafana annotation returned status %s: %s", r.status_code, r.text)
+            log.debug("Grafana annotation status %s", r.status_code)
     except Exception as e:
-        log.warning("Failed to post Grafana annotation: %s", e)
+        log.debug("Grafana channel offline: %s", e)
 
 
-# ─────────────────────────────────────────────
-# ML MODEL INITIALIZATION
-# ─────────────────────────────────────────────
-model = IsolationForest(
-    contamination=CONTAMINATION,
-    random_state=RANDOM_STATE
-)
+# ─────────────────────────────────────────────────────────────
+# PILLAR I: PERFORMANCE PREDICTION (Linear Trend Forecasting)
+# ─────────────────────────────────────────────────────────────
+def predict_performance_trends(history: list) -> float:
+    """Forecast P99 latency 5 minutes (60 steps) ahead."""
+    if len(history) < 20:
+        return 0.0
 
-data_points = load_data()
-log.info("Loaded %d historical data points", len(data_points))
-log.info("AI Active: monitoring '%s' | SLO & Anomaly Detection running...", SERVICE_NAME)
+    df = pd.DataFrame(history, columns=["rate", "errors", "p99"])
+    y  = df["p99"].values
+    X  = np.arange(len(y)).reshape(-1, 1)
 
-last_slo_alert_time     = 0.0
-last_anomaly_alert_time = 0.0
-loop_counter            = 0       # tracks when to retrain the model
-model_trained           = False   # True once we have enough points for a first fit
+    predictor = LinearRegression()
+    predictor.fit(X, y)
+
+    future_step   = len(y) + 60
+    predicted_p99 = predictor.predict([[future_step]])[0]
+    return float(max(0.0, predicted_p99))
 
 
-# ─────────────────────────────────────────────
-# MAIN MONITORING LOOP
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+# INITIALIZATION
+# ─────────────────────────────────────────────────────────────
+model         = IsolationForest(contamination=CONTAMINATION, random_state=RANDOM_STATE)
+data_points   = load_data()
+loop_counter  = 0
+model_trained = False
+last_slo_alert_time = 0.0
+
+log.info("AIOps Engine active — monitoring '%s' | %d historical points loaded",
+         SERVICE_NAME, len(data_points))
+
+# ─────────────────────────────────────────────────────────────
+# ENTERPRISE MONITORING LOOP
+# ─────────────────────────────────────────────────────────────
 while True:
     now          = time.time()
     loop_counter += 1
 
-    #Fetch all metrics
     req_rate = get_request_rate()
     err_rate = get_error_rate()
     p99      = get_p99_latency()
     slo_val  = fetch_slo_metric()
 
-    #Step A: SLO Violation Check
+    # ── SLO Check ────────────────────────────
     if slo_val < SLO_THRESHOLD:
         if now - last_slo_alert_time >= SLO_COOLDOWN_SEC:
-            log.warning(
-                "SLO VIOLATION — availability: %.2f%% (threshold: %.0f%%) | blocking deployments",
-                slo_val, SLO_THRESHOLD
-            )
+            log.warning("SLO VIOLATION — availability: %.2f%% (threshold: %.0f%%)",
+                        slo_val, SLO_THRESHOLD)
             last_slo_alert_time = now
-        else:
-            remaining = int(SLO_COOLDOWN_SEC - (now - last_slo_alert_time))
-            log.info("SLO still degraded: %.2f%% (next alert in %ds)", slo_val, remaining)
 
-    #Step B: Anomaly Detection
+    # ── Anomaly Detection ────────────────────
     if all(v is not None for v in [req_rate, err_rate, p99]):
 
         data_points.append([req_rate, err_rate, p99])
-        data_points = save_data(data_points)   # trim in memory AND on disk
+        data_points = save_data(data_points)
 
         if len(data_points) >= MIN_POINTS:
-            X = np.array(data_points[-TRAIN_WINDOW:])
+            X_train = np.array(data_points[-TRAIN_WINDOW:])
+           # NaN/Inf rows remove karo — IsolationForest accept nahi karta
+            X_train = X_train[~np.isnan(X_train).any(axis=1)]
+            X_train = X_train[~np.isinf(X_train).any(axis=1)]
+
+            if len(X_train) < MIN_POINTS:
+                log.warning("Not enough clean data after NaN filter: %d", len(X_train))
+            else:
+                if not model_trained or loop_counter % RETRAIN_EVERY == 0:
+                    model.fit(X_train)
+                    model_trained = True
+                    log.info("ML Engine retrained on %d clean vectors", len(X_train))
 
             if not model_trained or loop_counter % RETRAIN_EVERY == 0:
-                model.fit(X)
+                model.fit(X_train)
                 model_trained = True
-                log.info("Model retrained on %d points (loop #%d)", len(X), loop_counter)
+                log.info("ML Engine retrained on %d vectors (loop #%d)",
+                         len(X_train), loop_counter)
 
-            prediction = model.predict([[req_rate, err_rate, p99]])
+            prediction     = model.predict([[req_rate, err_rate, p99]])
+            forecasted_p99 = predict_performance_trends(data_points)
 
+            # ── ANOMALY DETECTED ─────────────
             if prediction[0] == -1:
-                if now - last_anomaly_alert_time >= ANOMALY_COOLDOWN_SEC:
-                    log.warning(
-                        "ANOMALY DETECTED — Rate=%.2f | Errors=%.2f | P99=%.3fs",
-                        req_rate, err_rate, p99
-                    )
 
-                    #Step C: Root Cause Analysis
-                    latest_id = get_latest_trace_id(SERVICE_NAME)
-                    if latest_id:
-                        cause = get_root_cause(latest_id, service=SERVICE_NAME)
-                        log.warning("Root cause: %s", cause)
-                    else:
-                        cause = "No recent traces found in Jaeger"
-                        log.warning("Root cause: %s", cause)
+                # PILLAR III: RCA
+                latest_id = get_latest_trace_id(SERVICE_NAME)
+                cause = (
+                    get_root_cause(latest_id, SERVICE_NAME)
+                    if latest_id
+                    else "Infrastructure mutation — no Jaeger trace found"
+                )
 
-                    #Step D: Deployment Risk + Grafana alert
-                    log.warning("High deployment risk  halt rollout immediately")
+                # PILLAR II: Alert Correlation & Noise Reduction
+                if not active_incident["is_open"]:
+                    active_incident.update({
+                        "is_open":     True,
+                        "start_time":  now,
+                        "alert_count": 1,
+                    })
+                    log.warning("[INCIDENT_OPENED] Anomaly signature detected")
+                    log.warning("RCA Result -> %s", cause)
+
                     alert_msg = (
-                        f"<b>AI Alert:</b> Anomaly detected on {SERVICE_NAME}<br>"
+                        f"<h3>INCIDENT STARTED: {SERVICE_NAME}</h3>"
                         f"<b>RCA:</b> {cause}<br>"
-                        f"<b>Metrics:</b> rate={req_rate:.2f} err={err_rate:.2f} p99={p99:.3f}s"
+                        f"<b>Metrics:</b> Rate={req_rate:.2f}/s | "
+                        f"Errors={err_rate:.4f}/s | P99={p99:.3f}s"
                     )
-                    post_to_grafana(alert_msg, tags=["anomaly", SERVICE_NAME])
-                    last_anomaly_alert_time = now
+                    post_to_grafana(alert_msg, tags=["incident-start", SERVICE_NAME])
 
                 else:
-                    remaining = int(ANOMALY_COOLDOWN_SEC - (now - last_anomaly_alert_time))
+                    # Noise reduction — deduplicate, do not flood annotations
+                    active_incident["alert_count"] += 1
                     log.info(
-                        "Anomaly ongoing (next alert in %ds) | Rate=%.2f",
-                        remaining, req_rate
+                        "NOISE REDUCTION: Suppressed redundant alert "
+                        "(total in incident: %d)",
+                        active_incident["alert_count"]
                     )
+
+                # PILLAR I: Predictive Warning
+                if forecasted_p99 > 2.5:
+                    log.critical(
+                        "PREDICTION: P99 heading to %.2fs in 5 minutes — "
+                        "consider scaling now",
+                        forecasted_p99
+                    )
+
+            # ── NORMAL STATE ─────────────────
             else:
+                if active_incident["is_open"]:
+                    duration = int(now - active_incident["start_time"])
+                    log.info("[INCIDENT_RESOLVED] System recovered after %ds | "
+                             "%d alerts correlated",
+                             duration, active_incident["alert_count"])
+
+                    resolve_msg = (
+                        f"<h3>INCIDENT RESOLVED</h3>"
+                        f"{SERVICE_NAME} recovered after {duration}s | "
+                        f"{active_incident['alert_count']} alerts correlated"
+                    )
+                    post_to_grafana(resolve_msg, tags=["incident-resolve", SERVICE_NAME])
+
+                    active_incident.update({
+                        "is_open":     False,
+                        "start_time":  None,
+                        "alert_count": 0,
+                    })
+
                 log.info(
-                    "Normal | Rate=%.2f | Errors=%.2f | P99=%.3fs | SLO=%.2f%%",
-                    req_rate, err_rate, p99, slo_val
+                    "Steady State | Rate=%.2f/s | Errors=%.4f/s | "
+                    "P99=%.3fs | Forecast(5m)=%.3fs | SLO=%.2f%%",
+                    req_rate, err_rate, p99, forecasted_p99, slo_val
                 )
+
         else:
-            needed = MIN_POINTS - len(data_points)
-            log.info("Collecting baseline data — %d more points needed before detection starts", needed)
+            log.info("Collecting baseline — %d more points needed",
+                     MIN_POINTS - len(data_points))
 
     else:
-        log.warning(
-            "Waiting for metrics — req=%s err=%s p99=%s",
-            req_rate, err_rate, p99
-        )
+        log.warning("Incomplete metric vector — req=%s err=%s p99=%s",
+                    req_rate, err_rate, p99)
 
     time.sleep(5)
