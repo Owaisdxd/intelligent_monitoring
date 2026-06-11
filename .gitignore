@@ -5,7 +5,7 @@ InelObservPlatform/k8s-manifests/tls.key
 # Generated data
 data_points.json
 aiops-engine/data_points.json
-
+InelObservPlatform/aiops-engine/.github_oauth
 # Python
 .venv/
 __pycache__/
@@ -18,3 +18,4 @@ k8s-manifests/kind-only/
 # Logs
 logs/
 *.log
+.env
