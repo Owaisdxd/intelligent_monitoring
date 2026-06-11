@@ -24,10 +24,10 @@ log = logging.getLogger(__name__)
 SERVICE_NAME             = os.getenv("MONITOR_SERVICE", "payment-api")
 PROM_URL                 = "http://127.0.0.1:9090/api/v1/query"
 JAEGER_URL               = "http://127.0.0.1:16686"
-GRAFANA_ANNOTATION_URL   = "http://127.0.0.1:3000/api/annotations"  # FIX: http not https
+GRAFANA_ANNOTATION_URL   = "https://127.0.0.1:3000/api/annotations"
 DATA_FILE                = "data_points.json"
 
-GRAFANA_TOKEN               = os.getenv("GRAFANA_API_KEY", "")
+GRAFANA_TOKEN            = os.getenv("GRAFANA_API_KEY")
 GRAFANA_ANNOTATIONS_ENABLED = True
 
 MIN_POINTS       = 60
@@ -37,7 +37,7 @@ MAX_HISTORY      = 1500
 TRAIN_WINDOW     = 500
 RETRAIN_EVERY    = 60
 REQUEST_TIMEOUT  = 5
-CONTAMINATION    = 0.1
+CONTAMINATION    = 0.3
 RANDOM_STATE     = 42
 
 # ─────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ prom_session = requests.Session()
 
 grafana_session = requests.Session()
 grafana_session.headers.update({
-    "Authorization": f"Bearer {GRAFANA_TOKEN}",
+        "Authorization": f"Bearer {GRAFANA_TOKEN}",
     "X-Grafana-Org-Id": "1",
     "Content-Type": "application/json",
 })
@@ -155,7 +155,7 @@ def get_cpu_utilization() -> float:
 
 
 # ─────────────────────────────────────────────────────────────
-# PILLAR III: ROOT CAUSE ANALYSIS
+# MOST IMPORTANT PART: ROOT CAUSE ANALYSIS
 # ─────────────────────────────────────────────────────────────
 def get_latest_trace_id(service: str) -> str | None:
     url    = f"{JAEGER_URL}/api/traces"

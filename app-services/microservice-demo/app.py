@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────
 resource  = Resource(attributes={"service.name": "payment-api"})
 provider  = TracerProvider(resource=resource)
-exporter  = OTLPSpanExporter(endpoint="http://localhost:4318/v1/traces")
+exporter  = OTLPSpanExporter(endpoint="http://127.0.0.1:4318/v1/traces")
 processor = BatchSpanProcessor(exporter)
 provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
@@ -102,7 +102,6 @@ def checkout():
         try:
             query_count = random.randint(1, 5)
             span.set_attribute("db.query.count", query_count)
-            # Realistic latency: 10-80ms per query
             time.sleep(random.uniform(0.01, 0.08) * query_count)
 
             if random.random() < 0.02:
@@ -121,7 +120,6 @@ def checkout():
 
         finally:
             latency = time.time() - start
-            # This is what anomaly_detector.py reads for P99
             REQUEST_LATENCY.labels(method='POST', endpoint=endpoint).observe(latency)
             REQUEST_COUNT.labels(method='POST', endpoint=endpoint, http_status=http_status).inc()
             ACTIVE_REQUESTS.labels(endpoint=endpoint).dec()
@@ -172,5 +170,5 @@ def api_data():
 # ─────────────────────────────────────────────
 if __name__ == '__main__':
     start_http_server(8000)
-    log.info("Metrics: :8000 | App: :5000")
+    log.info("Metrics: :8000 | App :5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
