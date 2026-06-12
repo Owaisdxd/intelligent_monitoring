@@ -1,13 +1,13 @@
 #!/bin/bash
-echo "========================================================="
-echo " LAUNCHING INEL OBSERVABILITY PLATFORM AUTOMATION ENGINE"
-echo "========================================================="
+echo "======================================="
+echo " LAUNCHING INEL OBSERVABILITY PLATFORM "
+echo "======================================="
 
-# 1. Namespace Check & Creation
+#1. Namespace Check & Creation
 echo "[INFO] Verifying Monitoring Namespace Layer..."
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 
-# 2. Automated SSL/TLS Engine Fix (The Gatekeeper)
+#2. Automated SSL/TLS Engine Fix (The Gatekeeper)
 echo "[INFO] Securing Communication: Injecting TLS Credentials..."
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -keyout k8s-manifests/tls.key -out k8s-manifests/tls.crt \
@@ -20,7 +20,7 @@ kubectl create secret tls grafana-tls-secret \
   --namespace=monitoring
 
 
-#Core Networking, Storage and Service Accounts First
+#Core Networking, Storage and Service Accounts
 kubectl apply -f k8s-manifests/service_account.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/grafana_rbac.yaml
 
@@ -42,8 +42,8 @@ kubectl apply -f k8s-manifests/alertmanager_svc.yaml
 kubectl apply -f k8s-manifests/otel-collector_deploy.yaml
 kubectl apply -f k8s-manifests/otel-collector_svc.yaml
 
-#Secured Grafana Portal Deployment
+#Grafana Portal Deployment
 kubectl apply -f k8s-manifests/grafana_deploy.yaml
 kubectl apply -f k8s-manifests/grafana_svc.yaml
 kubectl apply -f k8s-manifests/grafana_ingress.yaml
-echo "========================================================="
+echo "============================================="

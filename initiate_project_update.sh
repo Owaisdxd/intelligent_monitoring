@@ -450,15 +450,15 @@ check_pods() {
   kubectl get pods -n "$NAMESPACE"
 }
 
-#Step 3: Port-forward Prometheus, Grafana, Jaeger, OTel
-# For each service we try the port-forward first. If the port is still not
-# reachable after all retries we immediately call recover_service() — which
-# checks pods → deployment → YAML apply — right here at boot time, before
-# the background watchers are even running.
+#Step 3: Port-forward Prometheus, Grafana, Jaeger, OTel,& alert manager
+# For each service function try the port-forward first. If the port is still not
+# reachable after all retries (Which will be defined on configuration section)
+# we immediately call recover_service() — which
+# checks pods > deployment > YAML apply <> right here at boot time, before
+# the background watchers are running at background.
 setup_port_forwards() {
   log_section "Step 3 — Port Forwarding"
 
-  # Helper: attempt port-forward then run recovery if it fails at boot.
   # Usage: _boot_pf <name> <svc> <pf-ports> <check-port>
   _boot_pf() {
     local name="$1" svc="$2" ports="$3" check_port="$4"
@@ -474,7 +474,7 @@ setup_port_forwards() {
       return 0
     fi
 
-    # Port-forward failed at startup → run the full recovery ladder now
+    # Port-forward failed at startup > run the full recovery ladder now
     log_warn "Port-forward for '${name}' failed at startup. Running recovery..."
     set +e
     recover_service "$name" "$svc" "$ports" "$check_port"
@@ -584,7 +584,7 @@ main() {
   start_services
   start_traffic
 
-  #Launch background watchers
+
   log_section "Background Watchers"
 
   watch_pod_health &
@@ -595,7 +595,7 @@ main() {
   BACKGROUND_PIDS+=("$!")
   log_ok "Port-forward watcher launched (PID: ${BACKGROUND_PIDS[-1]}, every ${PF_WATCH_INTERVAL}s)"
   k8s_resources
-  #Brain runs in foreground (keeps script + trap alive)
+
   start_brain
 }
 
