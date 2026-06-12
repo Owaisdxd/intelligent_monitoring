@@ -97,11 +97,13 @@
 
     Once the script is running, access your insights here:
 
-    Grafana: https://localhost:3000 (View Error Budgets & DORA Metrics)
+    Grafanas: https://127.0.0.1:3000/
 
-    Prometheus: http://localhost:9090
+    Prometheus: http://localhost:9090/
 
-    Jaeger UI: http://localhost:16686
+    Jaeger UI: http://localhost:16686/
+
+    Alert manager: http://127.0.0.1:9093/
 
 **Shutdown**
 
