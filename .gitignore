@@ -6,6 +6,7 @@ InelObservPlatform/k8s-manifests/tls.key
 data_points.json
 aiops-engine/data_points.json
 InelObservPlatform/aiops-engine/.github_oauth
+data_points_backup.json
 # Python
 .venv/
 __pycache__/
