@@ -15,7 +15,7 @@ data:
 
     processors:
       batch:
-        send_batch_size: 50      # Demo ke liye optimized
+        send_batch_size: 50
         timeout: 2s
       memory_limiter:
         check_interval: 5s

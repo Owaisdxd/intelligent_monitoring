@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: grafana-service # <-- Yeh exact naam aapke Ingress backend se match karta hai
+  name: grafana-service
   namespace: monitoring
 spec:
-  type: ClusterIP # Ingress ke piche hamesha safe production ke liye ClusterIP use hota hai
+  type: ClusterIP
   selector:
-    app: grafana # <-- Yeh deployment ke template label (app: grafana) se connect karega
+    app: grafana
   ports:
     - protocol: TCP
-      port: 3000      # Service ka port jise Ingress hit karega
-      targetPort: 3000 # Actual Grafana container ka port
+      port: 3000
+      targetPort: 3000

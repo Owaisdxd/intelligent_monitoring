@@ -7,8 +7,6 @@ data:
   alertmanager.yml: |
     global:
       resolve_timeout: 5m
-
-    # The root route on which each incoming alert enters.
     route:
       group_by: ['alertname', 'cluster', 'service']
       group_wait: 5s
@@ -18,7 +16,5 @@ data:
 
     receivers:
     - name: 'default-receiver'
-      # For now, we'll configure a simple webhook or log receiver. 
-      # We can hook this up to Slack or your custom Python webhook engine later!
       webhook_configs:
       - url: 'http://172.17.0.1:5000/alerts'

@@ -13,7 +13,7 @@ kind: RoleBinding
 metadata:
   name: grafana-sidecar-binding
   namespace: monitoring
-subjects: # <-- FIXED: It must be plural 'subjects' with an 's'
+subjects:
 - kind: ServiceAccount
   name: default
   namespace: monitoring

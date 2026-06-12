@@ -30,7 +30,7 @@ spec:
 
       containers:
       - name: prometheus
-        image: prom/prometheus:v2.45.0  # Safe LTS Version
+        image: prom/prometheus:v2.45.0
         args:
           - "--config.file=/etc/prometheus/prometheus.yml"
           - "--storage.tsdb.retention.time=30d"

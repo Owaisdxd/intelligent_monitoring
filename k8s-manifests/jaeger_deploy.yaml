@@ -31,7 +31,7 @@ spec:
           - name: COLLECTOR_OTLP_ENABLED
             value: "true"
           - name: SPAN_STORAGE_TYPE
-            value: "badger" # Local storage engine
+            value: "badger"
           - name: BADGER_DIRECTORY_VALUE
             value: "/data/spans"
           - name: BADGER_DIRECTORY_KEY

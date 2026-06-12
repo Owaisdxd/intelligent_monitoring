@@ -10,7 +10,7 @@ data:
         rules:
           - alert: PythonAppDown
             expr: up{job="python-app"} == 0
-            for: 10s  # Agar 10 seconds tak app down rahi, to alert fire hoga
+            for: 5s
             labels:
               severity: critical
             annotations:
