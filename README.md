@@ -110,6 +110,14 @@
     To stop all services and background processes safely, simply press Ctrl+C in the terminal. The script will trigger a cleanup function to kill all background PIDs.
 
 **What Will You Accomplish**
+
+    AIOps:
+    - IsolationForest anomaly detection (3D metrics)
+      - LinearRegression performance prediction
+      - Alert correlation + noise reduction
+      - Jaeger RCA automation
+      - Grafana annotations on incidents
+
     Infrastructure:
     - node-exporter: CPU memory disk metrics
       - Blackbox exporter: synthetic monitoring (healthz, readyz, api/data)
@@ -118,12 +126,5 @@
       - Grafana: GitHub OAuth + live dashboard
       - Jaeger + OTel: distributed tracing
       - Alertmanager: webhook notification
-    
-    AIOps:
-    - IsolationForest anomaly detection (3D metrics)
-      - LinearRegression performance prediction
-      - Alert correlation + noise reduction
-      - Jaeger RCA automation
-      - Grafana annotations on incidents
 
 #intelligent_monitoring
