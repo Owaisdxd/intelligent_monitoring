@@ -19,6 +19,10 @@ GRAFANA_SVC="grafana-service"
 JAEGER_SVC="jaeger-service"
 ALERT_MANAGER_SVC="alertmanager"
 OTEL_COLLECTOR_SVC="otel-collector"
+BLACKBOX_EXPOTER_SVC="blackbox-exporter-service"
+LOKI_SVC="loki-service"
+NODE_EXPOTER_SVC="node-exporter-service"
+
 
 OTEL_HTTP_PORT=4318
 PROMETHEUS_PORT=9090
@@ -26,6 +30,9 @@ GRAFANA_PORT=3000
 JAEGER_UI_PORT=16686
 JAEGER_OTLP_PORT=4318
 ALERT_MANAGER_PORT=9093
+BLACKBOX_EXPOTER_PORT=9115
+LOKI_PORT=3100
+NODE_EXPOTER_PORT=9100
 
 PORT_FORWARD_WAIT=8
 PORT_CHECK_RETRIES=5
@@ -318,8 +325,10 @@ watch_port_forwards() {
     [grafana]="$GRAFANA_SVC"
     [jaeger]="$JAEGER_SVC"
     [otel-collector]="$OTEL_COLLECTOR_SVC"
-    [otel-collector]="$OTEL_COLLECTOR_SVC"
-    [ALERT_MANAGER]="$ALERT_MANAGER_SVC"
+    [alert-manager]="$ALERT_MANAGER_SVC"
+    [blackbox-exporter]="$BLACKBOX_EXPOTER_SVC"
+    [loki]="$LOKI_SVC"
+    [node-exporter]="$NODE_EXPOTER_SVC"
   )
   declare -A PF_PORTS=(
     [prometheus]="${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
@@ -327,6 +336,9 @@ watch_port_forwards() {
     [jaeger]="${JAEGER_UI_PORT}:${JAEGER_UI_PORT} ${JAEGER_OTLP_PORT}:${JAEGER_OTLP_PORT}"
     [otel-collector]="${OTEL_HTTP_PORT}:${OTEL_HTTP_PORT}"
     [ALERT_MANAGER]="${ALERT_MANAGER_PORT}:${ALERT_MANAGER_PORT}"
+    [blackbox-exporter]="${BLACKBOX_EXPOTER_PORT}:${BLACKBOX_EXPOTER_PORT}"
+    [loki]="${LOKI_PORT}:${LOKI_PORT}"
+    [node-exporter]="${NODE_EXPOTER_PORT}:${NODE_EXPOTER_PORT}"
   )
   declare -A PF_CHECK_PORT=(
     [prometheus]="$PROMETHEUS_PORT"
@@ -334,6 +346,9 @@ watch_port_forwards() {
     [jaeger]="$JAEGER_UI_PORT"
     [otel-collector]="$OTEL_HTTP_PORT"
     [ALERT_MANAGER]="$ALERT_MANAGER_PORT"
+    [blackbox-exporter]="$BLACKBOX_EXPOTER_PORT"
+    [loki]="$LOKI_PORT"
+    [node-exporter]="$NODE_EXPOTER_PORT"
   )
   # Track consecutive failures per service
   declare -A PF_FAILURES=(
@@ -342,6 +357,9 @@ watch_port_forwards() {
     [jaeger]=0
     [otel-collector]=0
     [ALERT_MANAGER]=0
+    [blackbox-exporter]=0
+    [loki]=0
+    [node-exporter]=0
   )
 
   while true; do
@@ -492,6 +510,9 @@ setup_port_forwards() {
   _boot_pf "jaeger"         "$JAEGER_SVC"          "${JAEGER_UI_PORT}:${JAEGER_UI_PORT} ${JAEGER_OTLP_PORT}:${JAEGER_OTLP_PORT}" "$JAEGER_UI_PORT"
   _boot_pf "otel-collector" "$OTEL_COLLECTOR_SVC"  "${OTEL_HTTP_PORT}:${OTEL_HTTP_PORT}"                                    "$OTEL_HTTP_PORT"
   _boot_pf "ALERTMANAGER"     "$ALERT_MANAGER_SVC"     "${ALERT_MANAGER_PORT}:${ALERT_MANAGER_PORT}"                          "$ALERT_MANAGER_PORT"
+  _boot_pf "blackbox-exporter"         "$BLACKBOX_EXPOTER_SVC"          "${BLACKBOX_EXPOTER_PORT}:${BLACKBOX_EXPOTER_PORT}"  "$BLACKBOX_EXPOTER_PORT"
+  _boot_pf "loki" "$LOKI_SVC"  "${LOKI_PORT}:${LOKI_PORT}"                                                                  "$LOKI_PORT"
+  _boot_pf "node-exporter"     "$NODE_EXPOTER_SVC"     "${NODE_EXPOTER_PORT}:${NODE_EXPOTER_PORT}"                          "$NODE_EXPOTER_PORT"
   echo ""
   log_info "Port-forward startup summary:"
   for _entry in \
@@ -499,7 +520,11 @@ setup_port_forwards() {
     "Grafana|${GRAFANA_PORT}" \
     "Jaeger UI|${JAEGER_UI_PORT}" \
     "OTel Collector|${OTEL_HTTP_PORT}" \
-    "ALERT_MANAGER|${ALERT_MANAGER_PORT}"
+    "ALERT_MANAGER|${ALERT_MANAGER_PORT}" \
+     "BLACKBOX_EXPOTER|${BLACKBOX_EXPOTER_PORT}" \
+    "loki|${LOKI_PORT}" \
+    "node-exporter|${NODE_EXPOTER_PORT}"
+
   do
     local _label="${_entry%%|*}"
     local _port="${_entry##*|}"
