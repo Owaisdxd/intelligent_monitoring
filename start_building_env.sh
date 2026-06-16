@@ -25,15 +25,15 @@ echo "TLS Secret creation confirmation"
 kubectl get secret grafana-tls-secret -n monitoring
 
 kubectl create secret generic grafana-github-oauth \
-  --from-literal=client_id=YOUR_GITHUB_CLIENT_ID \
-  --from-literal=client_secret=YOUR_GITHUB_CLIENT_SECRET \
+  --from-literal=client_id=Ov23liONDXiYq08LkxE0 \
+  --from-literal=client_secret=b092606d3358b32cf5703a01a3895d76fa5e2876 \
   -n monitoring
 #Core Networking, Storage and Service Accounts
 kubectl apply -f k8s-manifests/service_account.yaml 2>/dev/null
 kubectl apply -f k8s-manifests/grafana_rbac.yaml
 kubectl apply -f k8s-manifests/fluent-bit_rbac.yaml
-#Configuration
 
+#Configuration
 kubectl apply -f k8s-manifests/prometheus_cm.yaml
 kubectl apply -f k8s-manifests/prometheus-rules.yaml
 kubectl apply -f k8s-manifests/alertmanager_cm.yaml
@@ -41,7 +41,6 @@ kubectl apply -f k8s-manifests/otel-collector_cm.yaml
 kubectl apply -f k8s-manifests/fluent-bit_cm.yaml
 kubectl apply -f k8s-manifests/jaeger_cm.yaml
 kubectl apply -f k8s-manifests/grafana-dashboards.yaml
-kubectl apply -f k8s-manifests/slo-rules.yaml
 
 #Core Backend Services Infrastructure Triggers
 kubectl apply -f k8s-manifests/fluent-bit-ds.yaml
@@ -63,4 +62,9 @@ kubectl apply -f k8s-manifests/node-exporter_svc.yaml
 kubectl apply -f k8s-manifests/grafana_deploy.yaml
 kubectl apply -f k8s-manifests/grafana_svc.yaml
 kubectl apply -f k8s-manifests/grafana_ingress.yaml
+kubectl apply -f k8s-manifests/grafana-storage.yaml
+kubectl apply -f k8s-manifests/prometheus_storage.yaml
+kubectl apply -f k8s-manifests/jaeger_storage.yaml
+
 echo "============================================="
+echo "InelObservPlatform Setted Up Successfully"

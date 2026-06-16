@@ -10,7 +10,7 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   storageClassName: manual-storage
   hostPath:
-    path: /mnt/prometheus-data
+    path: /mnt/data/prometheus
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
