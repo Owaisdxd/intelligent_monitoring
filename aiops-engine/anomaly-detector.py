@@ -54,7 +54,7 @@ grafana_session.headers.update({
 grafana_session.verify = False
 
 # ─────────────────────────────────────────────────────────────
-# PILLAR II: ALERT CORRELATION STATE
+# ALERT CORRELATION STATE
 # ─────────────────────────────────────────────────────────────
 active_incident = {
     "is_open":     False,
@@ -83,7 +83,7 @@ def load_data() -> list:
 
 def save_data(data_points: list) -> list:
     import math
-    # NaN aur Inf values filter karo
+
     clean = [
         p for p in data_points
         if all(isinstance(v, (int, float)) and math.isfinite(v) for v in p)
@@ -125,7 +125,6 @@ def fetch_slo_metric() -> float:
 
 def get_error_rate() -> float | None:
     try:
-        # FIX 1: http_status — matches app.py Counter label definition
         result = _prom_query(
             "sum(rate(http_requests_total{http_status=~'5..'}[1m]))"
         )
@@ -147,7 +146,6 @@ def get_p99_latency() -> float | None:
 
 def get_cpu_utilization() -> float:
     try:
-        # FIX 2: use our recording rule — not non-existent system_cpu_usage
         result = _prom_query("node:cpu_utilization:percent")
         return float(result[0]["value"][1]) if result else 0.0
     except Exception:
@@ -186,7 +184,7 @@ def get_root_cause(trace_id: str, service: str) -> str:
         op       = slowest.get("operationName", "unknown")
         dur_ms   = slowest.get("duration", 0) / 1000
 
-        # Cross-reference with infrastructure metrics
+
         cpu_load = get_cpu_utilization()
         if cpu_load > 85.0:
             return (
@@ -228,7 +226,7 @@ def post_to_grafana(text: str, tags: list = None) -> None:
 
 
 # ─────────────────────────────────────────────────────────────
-# PILLAR I: PERFORMANCE PREDICTION (Linear Trend Forecasting)
+# PERFORMANCE PREDICTION (Linear Trend Forecasting)
 # ─────────────────────────────────────────────────────────────
 def predict_performance_trends(history: list) -> float:
     """Forecast P99 latency 5 minutes (60 steps) ahead."""
@@ -271,14 +269,14 @@ while True:
     p99      = get_p99_latency()
     slo_val  = fetch_slo_metric()
 
-    # ── SLO Check ────────────────────────────
+    #SLO Check
     if slo_val < SLO_THRESHOLD:
         if now - last_slo_alert_time >= SLO_COOLDOWN_SEC:
             log.warning("SLO VIOLATION — availability: %.2f%% (threshold: %.0f%%)",
                         slo_val, SLO_THRESHOLD)
             last_slo_alert_time = now
 
-    # ── Anomaly Detection ────────────────────
+    #Anomaly Detection
     if all(v is not None for v in [req_rate, err_rate, p99]):
 
         data_points.append([req_rate, err_rate, p99])
@@ -286,8 +284,6 @@ while True:
 
         if len(data_points) >= MIN_POINTS:
             X_train = np.array(data_points[-TRAIN_WINDOW:])
-           # NaN/Inf rows remove karo — IsolationForest accept nahi karta
-            X_train = X_train[~np.isnan(X_train).any(axis=1)]
             X_train = X_train[~np.isinf(X_train).any(axis=1)]
 
             if len(X_train) < MIN_POINTS:
@@ -307,10 +303,10 @@ while True:
             prediction     = model.predict([[req_rate, err_rate, p99]])
             forecasted_p99 = predict_performance_trends(data_points)
 
-            # ── ANOMALY DETECTED ─────────────
+            #ANOMALY DETECTED
             if prediction[0] == -1:
 
-                # PILLAR III: RCA
+                #RCA
                 latest_id = get_latest_trace_id(SERVICE_NAME)
                 cause = (
                     get_root_cause(latest_id, SERVICE_NAME)
@@ -318,7 +314,7 @@ while True:
                     else "Infrastructure mutation — no Jaeger trace found"
                 )
 
-                # PILLAR II: Alert Correlation & Noise Reduction
+                #Alert Correlation & Noise Reduction
                 if not active_incident["is_open"]:
                     active_incident.update({
                         "is_open":     True,
@@ -337,7 +333,7 @@ while True:
                     post_to_grafana(alert_msg, tags=["incident-start", SERVICE_NAME])
 
                 else:
-                    # Noise reduction — deduplicate, do not flood annotations
+                    #Noise reduction > deduplicate, do not flood annotations
                     active_incident["alert_count"] += 1
                     log.info(
                         "NOISE REDUCTION: Suppressed redundant alert "
@@ -345,7 +341,7 @@ while True:
                         active_incident["alert_count"]
                     )
 
-                # PILLAR I: Predictive Warning
+                #Predictive Warning
                 if forecasted_p99 > 2.5:
                     log.critical(
                         "PREDICTION: P99 heading to %.2fs in 5 minutes — "
@@ -353,7 +349,7 @@ while True:
                         forecasted_p99
                     )
 
-            # ── NORMAL STATE ─────────────────
+            #NORMAL STATE
             else:
                 if active_incident["is_open"]:
                     duration = int(now - active_incident["start_time"])

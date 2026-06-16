@@ -41,7 +41,7 @@ REQUEST_COUNT = Counter(
     ['method', 'endpoint', 'http_status']
 )
 
-# Histogram — anomaly detector ko P99 latency ke liye zaroori
+#Histogram
 REQUEST_LATENCY = Histogram(
     'http_request_duration_seconds',
     'Request latency in seconds',
