@@ -23,11 +23,13 @@ kubectl create secret tls grafana-tls-secret \
 
 echo "TLS Secret creation confirmation"
 kubectl get secret grafana-tls-secret -n monitoring
+
 echo $YOUR_GITHUB_CLIENT_ID
 echo $YOUR_GITHUB_CLIENT_SECRET
+
 kubectl create secret generic grafana-github-oauth \
-  --from-literal=client_id=YOUR_GITHUB_CLIENT_ID \
-  --from-literal=client_secret=YOUR_GITHUB_CLIENT_SECRET \
+  --from-literal=client_id=$YOUR_GITHUB_CLIENT_ID \
+  --from-literal=client_secret=$YOUR_GITHUB_CLIENT_SECRET \
   -n monitoring
 #Core Networking, Storage and Service Accounts
 kubectl apply -f k8s-manifests/service_account.yaml -n monitoring
@@ -59,7 +61,7 @@ kubectl apply -f k8s-manifests/loki_svc.yaml
 kubectl apply -f k8s-manifests/node-exporter_deploy.yaml
 kubectl apply -f k8s-manifests/node-exporter_svc.yaml
 
-#Grafana Portal Deployment
+#Grafana Portal Deployment and Storage
 kubectl apply -f k8s-manifests/grafana_deploy.yaml
 kubectl apply -f k8s-manifests/grafana_svc.yaml
 kubectl apply -f k8s-manifests/grafana_ingress.yaml
@@ -68,4 +70,4 @@ kubectl apply -f k8s-manifests/prometheus_storage.yaml
 kubectl apply -f k8s-manifests/jaeger_storage.yaml
 
 echo "============================================="
-echo "InelObservPlatform Setted Up Successfully"
+echo "InelObservPlatform Evironment is Setted Up Successfully"
