@@ -23,13 +23,14 @@ kubectl create secret tls grafana-tls-secret \
 
 echo "TLS Secret creation confirmation"
 kubectl get secret grafana-tls-secret -n monitoring
-
+echo $YOUR_GITHUB_CLIENT_ID
+echo $YOUR_GITHUB_CLIENT_SECRET
 kubectl create secret generic grafana-github-oauth \
-  --from-literal=client_id=Ov23liONDXiYq08LkxE0 \
-  --from-literal=client_secret=b092606d3358b32cf5703a01a3895d76fa5e2876 \
+  --from-literal=client_id=YOUR_GITHUB_CLIENT_ID \
+  --from-literal=client_secret=YOUR_GITHUB_CLIENT_SECRET \
   -n monitoring
 #Core Networking, Storage and Service Accounts
-kubectl apply -f k8s-manifests/service_account.yaml 2>/dev/null
+kubectl apply -f k8s-manifests/service_account.yaml -n monitoring
 kubectl apply -f k8s-manifests/grafana_rbac.yaml
 kubectl apply -f k8s-manifests/fluent-bit_rbac.yaml
 
