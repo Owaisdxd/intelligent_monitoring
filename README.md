@@ -21,6 +21,8 @@
     kubectl configured to your cluster
 
     Python 3.9+
+    
+    Must prepare env before running OR moving forward
 
 **Clone the Repository**
 
