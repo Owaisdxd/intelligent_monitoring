@@ -15,7 +15,7 @@ data:
       alertmanagers:
         - static_configs:
             - targets:
-              - alertmanager-service:9093
+              - 127.0.0.1:9093
 
     scrape_configs:
       - job_name: 'python-app'
