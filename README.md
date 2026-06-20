@@ -77,7 +77,7 @@
 
     cd .. && chmod +x initiate_project_update.sh && ./initiate_project_update.sh
 
-**You can test the prject pipline by running test_project.sh it will curl or check all the endpoints and verify the data flow**
+**You can test the project pipline by running test_project.sh it will curl or check all the endpoints and verify the data flow**
 
     ./test_project.sh
 
