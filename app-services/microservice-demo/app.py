@@ -172,3 +172,16 @@ if __name__ == '__main__':
     start_http_server(8000)
     log.info("Metrics: :8000 | App :5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
+
+@app.route('/api/deployment', methods=['POST'])
+def deployment_event():
+    data = request.get_json()
+    status = data.get('status', 'unknown')
+    version = data.get('version', 'unknown')[:8]
+    branch = data.get('branch', 'unknown')
+
+    DEPLOY_COUNT.labels(status=status).inc()
+
+    log.info("CI/CD Event | status=%s | version=%s | branch=%s",
+             status, version, branch)
+    return jsonify({"status": "recorded"}), 200
